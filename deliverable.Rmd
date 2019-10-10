@@ -1,0 +1,194 @@
+---
+title: "Advanced Statistical Modelling: Linear Models"
+author: "Joel Cantero Priego and Ricard Meyerhofer Parra"
+date: "12/10/2019"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(knitr)
+library("kableExtra")
+
+```
+
+## Introduction
+
+In this assignment, we are going to use the IMDB dataset. This IMDB dataset, contains information of 940 films released between 2000 and 2016. The data has been obtained from the IMDB's webpage. The following is a list where we can see all the variables of the dataset:
+
+Variable name         | Description                          | Values
+:--------------:|:-------------------------------------:|:-------------------------------------:
+movietitle| Director of the given title | String |
+gross| Gross in dollars |	Integer |
+budget|Budget in dollars	| Integer |
+duration| Film duration in minutes | Integer |
+titleyear| The release year of the title	| Integer |
+directorfl| Director Facebook likes	| Integer |
+actor1fl| Actor 1 Facebook likes | Integer |
+actor2fl| Actor 2 Facebook likes | Integer |
+actor3fl| Actor 3 Facebook likes | Integer |
+castfl| Cast Facebook likes | Integer |
+facenumber_in_poster| Number of faces that appears in the poster | Integer |
+genre | Genre film | Action/Comedy/Drama/Terror
+
+As we can see we have that all our variables are numerical in exception genre. This dataset is complete which means that it has no missing values. However, this does not imply that there are no outliers.
+
+```{r read-data, include=FALSE}
+dataset=read.csv2("IMDB.csv")
+head(dataset)
+summary(dataset)
+```
+
+```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+library(mice)
+md.pattern(dataset)
+```
+
+As required in the assignment, we are going to create a categorical variable: yearcat which is the categorical substitution of titleyear with 3 levels: 2000-2005, 2006-2010 and 2011-2016. Therefore, we will have two categorical variables (genre and titleyear).  
+
+```{r titleyear-to-categorical, echo=TRUE}
+dataset$yearcat<-cut(dataset$titleyear, c(2000,2005,2010,2016), 
+                   include.lowest = TRUE, 
+                   labels=c("2000-2005", "2006-2010", "2011-2016"))
+```
+
+## Exploratory Data Analysis
+
+In this section we are going to focus in explaining the most interesting conclusions of our data, perform an univariate and multivariate analysis of the variables in order to find outliers and see the relationship and structure of the dataset variables. 
+
+###Missing values remark
+As previously mentioned, there are no missing values. However, we can see that there are some 0 values in directorfl column but we can interpret them as they do not own any Facebook page.
+
+```{r titleyear-to-categorical2, echo=TRUE}
+length(which(dataset$directorfl==0))/length(dataset$directorfl)
+```
+
+###plotting stuffs:
+```{r, eval=FALSE, include=FALSE}
+names(dataset)
+for(j in names(dataset)){
+  print(j)
+  plot(dataset[j])
+}
+
+```
+
+###Univariate analysis
+For univariate analysis, histograms and box plot were obtained for the numerical variables and bar charts were generated for the categorical variables. These are the results obtained:
+
+We can see usual values for the Budget, with a mean of 40,484,550$. 
+
+```{r, echo=FALSE, fig.height=4, fig.width=12}
+par(mfrow=c(1,2))
+hist(dataset$budget, main="Histogram of budget")
+boxplot(dataset$budget, main="Box Plot of budget")
+```
+
+In duration film, we see that there is a certain tendency to normality centred around 100 minutes, we consider it as usual. There is a strange observation of 280 minutes for "Gods and General" film. After check it, we can say that it is not an error but an extrem value. 
+
+```{r, echo=FALSE, fig.height=4, fig.width=12}
+par(mfrow=c(1,2))
+hist(dataset$duration, main="Histogram of film duration")
+boxplot(dataset$duration, main="Box Plot of film duration")
+```
+
+No problems for year, there is a certain expected balanced in years proportion.
+
+```{r, echo=FALSE, fig.height=4, fig.width=12}
+barplot(table(dataset$titleyear), main="Bar Chart of title year")
+```
+
+In Director Facebook likes, we see that there is a value which appears in the majority of the cases: In this case, is the 0 value. Apart from this zero value, we see that small number of likes are more common than medium or higher number of likes. 
+
+```{r, echo=FALSE, fig.height=4, fig.width=12}
+plot(density(dataset$directorfl), main="Density plot of Director Facebook Likes")
+```
+
+
+In face number in film poster, the mean is about 1,6 faces and we can observe an extrem value of 31 in "The Master". We can say once again that it is not an error but an extrem value.
+
+
+```{r, echo=FALSE, fig.height=4, fig.width=12}
+par(mfrow=c(1,2))
+hist(dataset$facenumber_in_poster, main="Histogram of face number")
+boxplot(dataset$facenumber_in_poster, main="Box Plot of face number")
+```
+
+
+In genre film we can observe that there are more comedy and drama films than action and terror films. 
+
+```{r, echo=FALSE, fig.height=4, fig.width=12}
+barplot(table(dataset$genre), main="Bar Chart of film genre")
+```
+
+
+
+
+Thanks to cross-correlation matrix, we can see that there is a positive correlation between gross and budget variable (0,729). On the other hand there is positive correlation between Cast Facebook Likes and Actor Facebook likes. 
+
+```{r pressure, echo=FALSE, message=FALSE, warning=FALSE, fig.height=4, fig.width=12}
+pairs(~.,dataset[,-c(1)])
+kable(cor(dataset[,-c(1, 5, 12, 13)]), format="latex", booktabs=TRUE) %>% 
+  kable_styling(latex_options="scale_down")
+```
+
+
+```{r}
+# Gross variable exploration
+summary(dataset$gross)
+boxplot(dataset$gross)
+plot(density(dataset$gross), main="Density plot of gross")
+
+#Histogram/Density Function
+hist(dataset$gross)
+
+cat("Sample Mean\n")
+(m=mean(dataset$gross))
+
+cat("Sample Sd\n")
+(s=sd(dataset$gross))
+
+cat("LogLik\n")
+(loglik=sum(log(dnorm(dataset$gross,mean=mean(dataset$gross),sd=sd(dataset$gross)))))
+
+cat("AIC\n")
+(AIC=-2*loglik+2*2)
+
+#Plot Quantiles-Quantiles (Empirical-Theorical)
+qqplot(qnorm(ppoints(500),mean=m,sd=s),dataset$gross)
+qqnorm(dataset$gross)
+```
+
+In gross, our target variable, we see that there is a certain tendency to normality centred around 60.000.000$, 
+
+The highest grossing film is Avatar (760,505,847\$) and the lowest is Mi America (3330\$).
+
+## Fitting the complete model
+
+```{r}
+#Linear Regression
+summary(m1<-lm(gross ~ budget + duration + titleyear + directorfl + actor1fl + actor2fl + actor3fl + castfl + facenumber_in_poster + genre, dataset))
+
+op<-par(mfrow=c(2,2))
+plot(m1)
+par(op)
+
+summary(m2<-lm(gross ~ budget + duration + yearcat + directorfl + actor1fl + actor2fl + actor3fl + castfl + facenumber_in_poster + genre, dataset))
+op<-par(mfrow=c(2,2))
+plot(m2)
+par(op)
+```
+
+## Fitting the complete model
+
+
+```{r}
+#step(m1, scope = list(lower=m1,upper=m2), direction="both", criterion = "BIC", k=log(940))
+```
+
+
+
+
