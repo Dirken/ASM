@@ -3,9 +3,9 @@ title: "Advanced Statistical Modelling: Linear Models"
 author: "Joel Cantero Priego and Ricard Meyerhofer Parra"
 date: "12/10/2019"
 output:
-  pdf_document: default
   html_document:
     df_print: paged
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -47,7 +47,7 @@ library(mice)
 md.pattern(dataset)
 ```
 
-As required in the assignment, we are going to create a categorical variable: yearcat which is the categorical substitution of titleyear with 3 levels: 2000-2005, 2006-2010 and 2011-2016. Therefore, we will have two categorical variables (genre and titleyear).  
+As required in the assignment, we are going to create a categorical variable: **yearcat** which is the categorical substitution of titleyear with 3 levels: 2000-2005, 2006-2010 and 2011-2016. Therefore, we will have two categorical variables (genre and titleyear).  
 
 ```{r titleyear-to-categorical, echo=TRUE}
 dataset$yearcat<-cut(dataset$titleyear, c(2000,2005,2010,2016), 
@@ -55,18 +55,26 @@ dataset$yearcat<-cut(dataset$titleyear, c(2000,2005,2010,2016),
                    labels=c("2000-2005", "2006-2010", "2011-2016"))
 ```
 
+
+We are going to scale the variables that are in dollars (budget and gross) so that our linear models perform better. This because the values in dollars are in a scale way bigger than the other variables which makes difficult to perform well for a linear model.
+
+```{r dollars, echo=TRUE}
+#consider later when it increases that we have this variables in logarithm
+#log G = bo + b1 log B + .....
+#if we add one unit, we have to consider that we are in logarithm and we should express in exponential...
+#is not the same if we consider without log and with log, so we have to consider.
+#if we multiply per 10 is easier to later show.
+dataset$gross <- log10(dataset$gross)
+dataset$budget <- log10(dataset$budget)
+```
+
+
 ## Exploratory Data Analysis
+he said in class that here we should aim for which scale we should give to each variable.
+
 
 In this section we are going to focus in explaining the most interesting conclusions of our data, perform an univariate and multivariate analysis of the variables in order to find outliers and see the relationship and structure of the dataset variables. 
 
-###Missing values remark
-As previously mentioned, there are no missing values. However, we can see that there are some 0 values in directorfl column but we can interpret them as they do not own any Facebook page.
-
-```{r titleyear-to-categorical2, echo=TRUE}
-length(which(dataset$directorfl==0))/length(dataset$directorfl)
-```
-
-###plotting stuffs:
 ```{r, eval=FALSE, include=FALSE}
 names(dataset)
 for(j in names(dataset)){
@@ -77,7 +85,7 @@ for(j in names(dataset)){
 ```
 
 ###Univariate analysis
-For univariate analysis, histograms and box plot were obtained for the numerical variables and bar charts were generated for the categorical variables. These are the results obtained:
+For univariate analysis, histograms and box plot were obtained for the numerical variables and bar charts were generated for the categorical variables. 
 
 We can see usual values for the Budget, with a mean of 40,484,550$. 
 
@@ -105,6 +113,9 @@ In Director Facebook likes, we see that there is a value which appears in the ma
 
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
 plot(density(dataset$directorfl), main="Density plot of Director Facebook Likes")
+
+length(which(dataset$directorfl==0))/length(dataset$directorfl)
+```
 ```
 
 

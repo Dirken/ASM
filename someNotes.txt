@@ -1,0 +1,26 @@
+check -> library(effects)
+
+Question: how to solve question 3).
+when you have two models you can calculate the AIC or the BIC. these two are information criteria.
+this means this two models will be similar in this criteria.
+
+the criteria is a value AIC = -2logL -> The lower the better. residual variance
+a lower value of this it implies a better model but if oyu are adding variables, it might be a more complicated model
+to avoid so, you try to penalize it with a K. this is a straight line so that you find an optimum and therefore,
+there is a best model. for instance k=2 (default of the step method) 
+if you use this approach you might find p values higher than 5% so it means that are not significant and must be dropped.
+
+to avoid this problem he suggests to add this weight: BIC with k=log(N) where N is the number of the observation. 
+By using the BIC with this weight it will give us a lower model with less variables bc is more exigent.
+
+But remember that sometimes by using this approach (the latter ) you still have some non-significant values. this is because there is
+some interaction in the model that makes that even it doesnt appear directly it is still affecting (not sure about this last phrase).
+
+Question: how many models we have to create?
+there are two ways:
+  1- step(mo, scope = list(upper=mt), direct=BOTH, k=logN) this goes from simpliest to most complicated.
+  2- step(mt, dir= , k=) this goes from the most complicated and tries to simplify
+
+usually both give a diff result. we could compare both, both are heuristics. 
+
+
