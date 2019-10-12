@@ -205,6 +205,39 @@ wordcloud(words = c("Action", "Comedy","Drama", "Terror"), freq = c(112, 365, 33
           colors=brewer.pal(3, "Dark2"))
 ```
 
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+library("tm")
+library("SnowballC")
+library("wordcloud")
+library("RColorBrewer")
+
+text <- dataset$movietitle
+# Load the data as a corpus
+docs <- Corpus(VectorSource(text))
+# Convert the text to lower case
+docs <- tm_map(docs, content_transformer(tolower))
+# Remove numbers
+docs <- tm_map(docs, removeNumbers)
+# Remove english common stopwords
+docs <- tm_map(docs, removeWords, stopwords("english"))
+# Remove your own stop word
+
+# Remove punctuations
+docs <- tm_map(docs, removePunctuation)
+# Eliminate extra white spaces
+docs <- tm_map(docs, stripWhitespace)
+# Text stemming
+# docs <- tm_map(docs, stemDocument)
+dtm <- TermDocumentMatrix(docs)
+m <- as.matrix(dtm)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+head(d, 10)
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=200, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+```
 
 Thanks to cross-correlation matrix, we can see that there is a positive correlation between gross and budget variable (0,729). On the other hand there is positive correlation between Cast Facebook Likes and Actor Facebook likes. 
 
