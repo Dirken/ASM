@@ -201,7 +201,7 @@ summary(dataset$genre)
 library("wordcloud")
 set.seed(1234)
 wordcloud(words = c("Action", "Comedy","Drama", "Terror"), freq = c(112, 365, 330, 133) , min.freq = 50,
-          max.words=5, random.order=FALSE, rot.per=0.35, 
+          max.words=5, random.order=FALSE, rot.per=0.45, 
           colors=brewer.pal(3, "Dark2"))
 ```
 
@@ -217,7 +217,7 @@ docs <- Corpus(VectorSource(text))
 # Convert the text to lower case
 docs <- tm_map(docs, content_transformer(tolower))
 # Remove numbers
-docs <- tm_map(docs, removeNumbers)
+#docs <- tm_map(docs, removeNumbers)
 # Remove english common stopwords
 docs <- tm_map(docs, removeWords, stopwords("english"))
 # Remove your own stop word
@@ -235,8 +235,12 @@ d <- data.frame(word = names(v),freq=v)
 head(d, 10)
 set.seed(1234)
 wordcloud(words = d$word, freq = d$freq, min.freq = 1,
-          max.words=200, random.order=FALSE, rot.per=0.35, 
+          max.words=50, random.order=FALSE, rot.per=0.35, 
           colors=brewer.pal(8, "Dark2"))
+#words that occur at least 4 times
+findFreqTerms(dtm, lowfreq = 4)
+#terms that associate with word
+findAssocs(dtm, terms = "man", corlimit = 0.3)
 ```
 
 Thanks to cross-correlation matrix, we can see that there is a positive correlation between gross and budget variable (0,729). On the other hand there is positive correlation between Cast Facebook Likes and Actor Facebook likes. 
