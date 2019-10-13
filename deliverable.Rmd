@@ -122,8 +122,7 @@ boxplot(dataset$budget, main="Box Plot of budget")
 
 ####Relationship between budget and gross
 
-We can see that the revenue is correlated with the budget as we can see in the plot below:
-
+We can see that the revenue is correlated with the budget as we can see in the plot below.
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
 plot(dataset$budget, dataset$gross)
 ```
@@ -202,7 +201,7 @@ boxplot(dataset$duration, main="Box Plot of film duration")
 
 ####Relationship between duration and gross
 
-We can see that there is not a clear correlation between the duration of a film and it's revenue since we can see that transversally to the duration, we have the similar results in gross.
+We can see that there is not a clear correlation between the duration of a film and its revenue since we can see that transversally to the duration, we have the similar results in gross.
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
 plot(dataset$duration, dataset$gross)
 ```
@@ -225,6 +224,8 @@ barplot(table(dataset$titleyear), main="Bar Chart of title year")
 ```
 
 ####Relationship between years and gross
+We can see that there is not a strong correlation between the year of release and the gross obtained from those years. Even that there are some years better than others.
+
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
 plot(dataset$titleyear, dataset$gross)
 ```
@@ -241,6 +242,9 @@ We can see that the other variables Actor1fl, Actor2fl, Actor3fl, Castfl follow 
 
 
 ####Relationship of Directorfl, Actor1fl, Actor2fl, Actor3fl, Castfl with gross
+
+We can see a trend where the more likes Directors, Acts or Cast are they tend to have more revenue.
+
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
 par(mfrow=c(2,3))
 plot(dataset$directorfl, dataset$gross)
@@ -254,17 +258,17 @@ plot(dataset$castfl, dataset$gross)
 
 In face number in film poster, the mean is about 1,6 faces and we can observe an extrem value of 31 in "The Master". We can say once again that it is not an error but an extreme value.
 
-####Relationship of Facenumber with Gross
-```{r, echo=FALSE, fig.height=4, fig.width=12}
-plot(dataset$facenumber_in_poster, dataset$gross)
-```
-
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
 par(mfrow=c(1,3))
 plot(dataset$facenumber_in_poster)
 #no em molen gens les gràfiques que fas per general. No són gens indicatives ni són clares. el hist no té sentit
 hist(dataset$facenumber_in_poster, main="Histogram of face number")
 boxplot(dataset$facenumber_in_poster, main="Box Plot of face number")
+```
+
+####Relationship of Facenumber with Gross
+```{r, echo=FALSE, fig.height=4, fig.width=12}
+plot(dataset$facenumber_in_poster, dataset$gross)
 ```
 
 ###Genre
@@ -283,9 +287,12 @@ wordcloud(words = c("Action", "Comedy","Drama", "Terror"), freq = c(112, 365, 33
 
 ####Relationship of Genre with Gross
 
+We can see that action films from the dataset tend to have a slightly more income than drama, terror and comedy films. We also can see that there are more outlayers in the comedy genre.
+
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
-#fill
+plot(dataset$genre, dataset$gross)
 ```
+
 ## Correlation matrix
 Thanks to cross-correlation matrix, we can see that there is a positive correlation between gross and budget variable (0,729). On the other hand there is positive correlation between Cast Facebook Likes and Actor Facebook likes. 
 
@@ -311,10 +318,15 @@ plot(completeModel)
 
 ## Use the stepwise procedure, by using the BIC criterion, to select the signicant variables
 
-
 ```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 nullModel <- lm(gross ~ 1, dataset)
-step(nullModel, scope = list(lower=nullModel,upper=completeModel), direction="both", criterion = "BIC", k=log(940), steps = 1000)
+stepModel <- step(nullModel, scope = list(lower=nullModel,upper=completeModel), direction="both", criterion = "BIC", k=log(940), steps = 1000)
+summary(stepModel)
+```
+
+## Check the presence of multicollinearity. If there is some non-interaction multicollinearity in the model, make the corresponding corrections.
+```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
+car::vif(stepModel)
 ```
 
 
