@@ -50,15 +50,16 @@ md.pattern(dataset)
 As required in the assignment, we are going to create a categorical variable: **yearcat** which is the categorical substitution of titleyear with 3 levels: 2000-2005, 2006-2010 and 2011-2016. Therefore, we will have two categorical variables (genre and titleyear).  
 
 ```{r titleyear-to-categorical, echo=TRUE}
-dataset$yearcat<-cut(dataset$titleyear, c(2000,2005,2010,2016), 
-                   include.lowest = TRUE, 
-                   labels=c("2000-2005", "2006-2010", "2011-2016"))
+dataset$yearcat<-cut(dataset$titleyear, 
+                     c(2000,2005,2010,2016), 
+                     include.lowest = TRUE, 
+                     labels=c("2000-2005", "2006-2010", "2011-2016"))
 ```
 
 
 
 ## Exploratory Data Analysis
-In this section we are going to focus in explaining the most interesting conclusions of our data, perform an univariate and multivariate analysis of the variables in order to find outliers and see the relationship and structure of the dataset variables. We are also going to modify some variables in order to make the linear model perform better on them.
+In this section we are going to focus in explaining the most interesting conclusions of our data, perform an univariate and multivariate analysis of the variables in order to find outliers and see how each of these variables is related with the gross. We are also going to modify some variables in order to make the linear model perform better on them.
 
 
 ###Movie title
@@ -66,7 +67,7 @@ In this section we are going to focus in explaining the most interesting conclus
 We have performed a cloud of the most relevant words that appear in the movies. To do so, we have removed stopwords and punctuation. We could have also done a stemming process but is not so important for us to do so.
 We can see that the top words are words such as: man, love, movie, house, american, life, big, etc.
 
-```{r, echo=FALSE, fig.height=7, fig.width=12, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 library("tm")
 library("SnowballC")
 library("wordcloud")
@@ -117,6 +118,11 @@ dataset$movietitle[dataset$budget==300000000]
 par(mfrow=c(1,2))
 hist(dataset$budget, main="Histogram of budget")
 boxplot(dataset$budget, main="Box Plot of budget")
+```
+
+####Relationship between budget and gross
+```{r, echo=FALSE, fig.height=4, fig.width=12}
+plot(dataset$genre, dataset$gross)
 ```
 
 ###Gross
@@ -191,14 +197,19 @@ boxplot(dataset$duration, main="Box Plot of film duration")
 ```
 
 
-Maybe we could consider passing duration to hours. What do you think about it?
-
+####Relationship between duration and gross
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
-#dataset$duration <- dataset$duration/60
-par(mfrow=c(1,2))
-hist(dataset$duration, main="Histogram of film duration")
-boxplot(dataset$duration, main="Box Plot of film duration")
+plot(dataset$duration, dataset$gross)
 ```
+
+[//]:Maybe we could consider passing duration to hours. What do you think about it?
+
+[//]:```{r, echo=FALSE, fig.height=4, fig.width=12}
+[//]:#dataset$duration <- dataset$duration/60
+[//]:par(mfrow=c(1,2))
+[//]:hist(dataset$duration, main="Histogram of film duration")
+[//]:boxplot(dataset$duration, main="Box Plot of film duration")
+[//]:```
 
 ###Title Year
 
@@ -206,6 +217,11 @@ No problems for year, there is a certain expected balanced in years proportion e
 
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
 barplot(table(dataset$titleyear), main="Bar Chart of title year")
+```
+
+####Relationship between years and gross
+```{r, echo=FALSE, fig.height=4, fig.width=12}
+plot(dataset$titleyear, dataset$gross)
 ```
 
 ###Directorfl, Actor1fl, Actor2fl, Actor3fl, Castfl
@@ -216,13 +232,27 @@ In Director Facebook likes, we see that there is a value which appears in the ma
 plot(density(dataset$directorfl), main="Density plot of Director Facebook Likes")
 #length(which(dataset$directorfl==0))/length(dataset$directorfl)
 ```
-
 We can see that the other variables Actor1fl, Actor2fl, Actor3fl, Castfl follow a similar fashion.
+
+
+####Relationship of Directorfl, Actor1fl, Actor2fl, Actor3fl, Castfl with gross
+```{r, echo=FALSE, fig.height=4, fig.width=12}
+par(mfrow=c(2,3))
+plot(dataset$directorfl, dataset$gross)
+plot(dataset$actor1fl, dataset$gross)
+plot(dataset$actor2fl, dataset$gross)
+plot(dataset$actor3fl, dataset$gross)
+plot(dataset$castfl, dataset$gross)
+```
 
 ###Facenumber in poster
 
 In face number in film poster, the mean is about 1,6 faces and we can observe an extrem value of 31 in "The Master". We can say once again that it is not an error but an extreme value.
 
+####Relationship of Facenumber with Gross
+```{r, echo=FALSE, fig.height=4, fig.width=12}
+plot(dataset$facenumber_in_poster, dataset$gross)
+```
 
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
 par(mfrow=c(1,3))
@@ -246,8 +276,12 @@ wordcloud(words = c("Action", "Comedy","Drama", "Terror"), freq = c(112, 365, 33
           colors=brewer.pal(3, "Dark2"))
 ```
 
+####Relationship of Genre with Gross
 
-
+```{r, echo=FALSE, fig.height=4, fig.width=12}
+#fill
+```
+## Correlation matrix
 Thanks to cross-correlation matrix, we can see that there is a positive correlation between gross and budget variable (0,729). On the other hand there is positive correlation between Cast Facebook Likes and Actor Facebook likes. 
 
 ```{r pressure, echo=FALSE, message=FALSE, warning=FALSE, fig.height=4, fig.width=12}
@@ -255,6 +289,7 @@ pairs(~.,dataset[,-c(1)])
 kable(cor(dataset[,-c(1, 5, 12, 13)]), format="latex", booktabs=TRUE) %>% 
   kable_styling(latex_options="scale_down")
 ```
+
 
 ## Fitting the complete model
 
