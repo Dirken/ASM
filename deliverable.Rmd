@@ -328,7 +328,7 @@ plot(completeModel)
 
 ## Use the stepwise procedure, by using the BIC criterion, to select the signicant variables
 
-```{r, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, include=FALSE}
+```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, results = 'hide'}
 nullModel <- lm(gross ~ 1, dataset)
 
 forwardModel <- step(nullModel, 
@@ -361,6 +361,7 @@ kable(car::vif(backwardModel), format="latex", booktabs=TRUE) %>%
 
 ```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 finalModel <- lm(gross ~ budget + duration, dataset)
+summary(finalModel)
 ```
 
 ## Validate the model by checking the assumptions
