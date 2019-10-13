@@ -177,7 +177,7 @@ As we have just seen values from budget and gross are in a bigger scale than the
 [//]: is not the same if we consider without log and with log, so we have to consider.
 [//]: if we multiply per 10 is easier to later show.
 
-```{r dollars, echo=TRUE, fig.height=4, fig.width=12}
+```{r dollars, eval=FALSE, fig.height=4, fig.width=12, include=FALSE}
 dataset$gross <- log10(dataset$gross)
 dataset$budget <- log10(dataset$budget)
 par(mfrow=c(1,2))
@@ -294,7 +294,11 @@ plot(dataset$genre, dataset$gross)
 ```
 
 ## Correlation matrix
-Thanks to cross-correlation matrix, we can see that there is a positive correlation between gross and budget variable (0,729). On the other hand there is positive correlation between Cast Facebook Likes and Actor Facebook likes. 
+In this section we can see the correlation between the varibales. It is a bit of what we have seen but in this case is not only focused with the gross but all the variables. Furthermore, by doing the correlation of the variables, we have a numeric value that says us how correlated two variables are which we did not quantify when doing the exploratory analysis.
+
+We can see that there is a positive correlation between gross and budget variable (0,729). On the other hand there is positive correlation between Cast Facebook Likes and Actor Facebook likes. 
+
+**EXPLICAR MÉS**
 
 ```{r pressure, echo=FALSE, message=FALSE, warning=FALSE, fig.height=4, fig.width=12}
 pairs(~.,dataset[,-c(1)])
@@ -320,13 +324,28 @@ plot(completeModel)
 
 ```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 nullModel <- lm(gross ~ 1, dataset)
-stepModel <- step(nullModel, scope = list(lower=nullModel,upper=completeModel), direction="both", criterion = "BIC", k=log(940), steps = 1000)
-summary(stepModel)
+
+forwardModel <- step(nullModel, 
+                     scope = list(upper=completeModel), 
+                     direction="both", criterion = "BIC", 
+                     k=log(nrow(dataset)))
+
+backwardModel <- step(completeModel, 
+                      scope = list(lower=nullModel), 
+                      direction="both", 
+                      criterion = "BIC", 
+                      k=log(nrow(dataset)))
+
+
+summary(forwardModel)
+summary(backwardModel)
 ```
 
 ## Check the presence of multicollinearity. If there is some non-interaction multicollinearity in the model, make the corresponding corrections.
 ```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
-car::vif(stepModel)
+car::vif(forwardModel)
+car::vif(backwardModel)
+
 ```
 
 
