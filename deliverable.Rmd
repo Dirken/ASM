@@ -352,26 +352,39 @@ kable(summary(finalModel)$coefficients, format="latex", booktabs=TRUE)%>%
 
 
 ```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
-finalModel2 <- lm(gross ~ duration + actor3fl 
-                  + genre + yearcat + budget:genre 
-                  + budget:yearcat, dataset)
+finalModel2 <- lm(gross ~ duration + actor3fl + genre 
+                  + yearcat + budget:genre + budget:yearcat, dataset)
 kable(summary(finalModel2)$coefficients, format="latex", booktabs=TRUE)%>%
   kable_styling(position = "center")
 ```
+In this model we have that the variable yearcat2006-2010 does have multicolinearity together with  yearcat2006-2010:budget. However, if we revise both models we see that this second model is way more complex and even that it performs slightly better, it is more complex. Therefore, we are going to choose **finalModel** which is the one of the **forwardModel**
 
 ## Validate the model by checking the assumptions
 Once we have our model selected, we are going to validate it with anova comparing the null model with our final model.
 ```{r, echo=TRUE, fig.height=2, fig.width=12, message=FALSE, warning=FALSE}
 anova(nullModel, finalModel)
-anova(nullModel, finalModel2)
 ```
 In this case we can see that our model, **passes** the test since our p-value is lower than 0.05. 
 
 ## Interpret the final model
 
-Even our final model has an adjusted r-squared about 0.54 (that maybe seems so low), we can assume that does not exist multicollinearity in its variables, one of our purposes in this project.
+Even our final model has an adjusted r-squared of 0.4928 which is a low value, we can assume that does not exist multicollinearity in its variables, one of our purposes in this project.
 
-We rather a simple model with two predictor variables than a complex model with many of them. It seems difficult to predict gross variable in this dataset due its size (just 940 observations) and its outliers. The log transformation that we have applied to numerical variables have a big impact in the performance of our model, it was a great choice. 
+As we have previously said, we would rather a simple model with two predictor variables than a complex model with many of them. It seems difficult to predict gross variable in this dataset due its size (just 940 observations) and the very different data that contains. Probably it would be much wiser to select movies from a certain revenue and classify them and create a model for them. Regardless, we do not have this many variables that can be relevant as we have seen in the exploratory analysis.
 
-We can say that other kind of models should lead to better results than a simple linear regression model.
+We can say that other kind of models should lead to better results than a simple linear regression model. Also performing a PCA would give a first insight on how variables are related to each other.
 
+Finally, we can see that our model now has a worst performance than the complete model but in this case we are not using all variables but rather a very simple model. 
+
+We can see from the residuals vs fitted that we still have non-linear patterns but not very differently than in the aforementioned. In the same way, now we have more skewness in the tail of the Q-Q plot. We can see from the Scale-Location that from 1.75e+08 the residuals are wider.
+
+```{r, echo=TRUE, fig.height=6, fig.width=12, message=FALSE, warning=FALSE}
+op=par(mfrow=c(2,2))
+plot(finalModel)
+```
+
+
+```{r, echo=TRUE, fig.height=6, fig.width=12, message=FALSE, warning=FALSE}
+library(car)
+scatterplot(predict(finalModel),dataset$gross,smooth=FALSE)
+```
