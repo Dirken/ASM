@@ -180,6 +180,12 @@ As we have just seen values from budget and gross are in a bigger scale than the
 ```{r dollars, eval=FALSE, fig.height=4, fig.width=12, include=FALSE}
 dataset$gross <- log10(dataset$gross)
 dataset$budget <- log10(dataset$budget)
+dataset$duration <- dataset$duration
+dataset$directorfl <- log10(dataset$directorfl)
+dataset$actor1fl <- log10(dataset$actor1fl)
+dataset$actor2fl <- log10(dataset$actor2fl)
+dataset$actor3fl <- log10(dataset$actor3fl)
+dataset$castfl <- log10(dataset$castfl)
 par(mfrow=c(1,2))
 plot(density(dataset$gross), main="Density plot of gross")
 plot(density(dataset$budget), main="Density plot of budget")
@@ -322,7 +328,7 @@ plot(completeModel)
 
 ## Use the stepwise procedure, by using the BIC criterion, to select the signicant variables
 
-```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
+```{r, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, include=FALSE}
 nullModel <- lm(gross ~ 1, dataset)
 
 forwardModel <- step(nullModel, 
@@ -336,16 +342,32 @@ backwardModel <- step(completeModel,
                       criterion = "BIC", 
                       k=log(nrow(dataset)))
 
+``` 
 
-summary(forwardModel)
-summary(backwardModel)
+```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
+kable(summary(forwardModel)$coefficients, format="latex", booktabs=TRUE) %>% 
+  kable_styling(latex_options="scale_down")
+kable(summary(backwardModel)$coefficients, format="latex", booktabs=TRUE) %>% 
+  kable_styling(latex_options="scale_down")
 ```
 
 ## Check the presence of multicollinearity. If there is some non-interaction multicollinearity in the model, make the corresponding corrections.
-```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
-car::vif(forwardModel)
-car::vif(backwardModel)
-
+```{r, echo=TRUE, fig.height=2, fig.width=12, message=FALSE, warning=FALSE}
+kable(car::vif(forwardModel), format="latex", booktabs=TRUE) %>% 
+  kable_styling(latex_options="scale_down")
+kable(car::vif(backwardModel), format="latex", booktabs=TRUE) %>% 
+  kable_styling(latex_options="scale_down")
 ```
+
+```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
+finalModel <- lm(gross ~ budget + duration, dataset)
+```
+
+## Validate the model by checking the assumptions
+```{r, echo=TRUE, fig.height=2, fig.width=12, message=FALSE, warning=FALSE}
+anova(nullModel, finalModel)
+```
+
+## Interpret the final model
 
 
