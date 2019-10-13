@@ -34,7 +34,8 @@ castfl| Cast Facebook likes | Integer |
 facenumber_in_poster| Number of faces that appears in the poster | Integer |
 genre | Genre film | Action/Comedy/Drama/Terror
 
-As we can see we have that all our variables are numerical in exception genre. This dataset is complete which means that it has no missing values. However, this does not imply that there are no outliers.
+As we can see we have that all our variables are numerical in exception genre. This dataset is complete which means that it has no missing values. However, this does not imply that there are no outliers. 
+Because this dataset is a simplification from an IMDB dataset we are not going to perform inputations on we might think are outliers. Furthermore, we have to take into consideration that this dataset has a very wide variety of movies so the spectrum of values can be really different. 
 
 ```{r read-data, include=FALSE}
 dataset=read.csv2("IMDB.csv")
@@ -50,10 +51,10 @@ md.pattern(dataset)
 As required in the assignment, we are going to create a categorical variable: **yearcat** which is the categorical substitution of titleyear with 3 levels: 2000-2005, 2006-2010 and 2011-2016. Therefore, we will have two categorical variables (genre and titleyear).  
 
 ```{r titleyear-to-categorical, echo=TRUE}
-dataset$yearcat<-cut(dataset$titleyear, 
+dataset$yearcat<-as.factor(cut(dataset$titleyear, 
                      c(2000,2005,2010,2016), 
                      include.lowest = TRUE, 
-                     labels=c("2000-2005", "2006-2010", "2011-2016"))
+                     labels=c("2000-2005", "2006-2010", "2011-2016")))
 ```
 
 
@@ -106,7 +107,7 @@ wordcloud(words = d$word, freq = d$freq, min.freq = 1,
 
 ###Budget
 
-We can see that there is a very disperse amount of values regarding the budget that range from a minimum of 400 thousand dollars (Napoleon Dynamite) to 300 million dollars (Pirates of the Caribbean: At World's End). Despite how crazy this numbers can appear to be, we have revised them by looking at the budget of this two movies on the interent and are correct. 
+We can see that there is a very disperse amount of values regarding the budget that range from a minimum of 400 thousand dollars (Napoleon Dynamite) to 300 million dollars (Pirates of the Caribbean: At World's End). Despite how crazy this numbers can appear to be, we have revised them by looking at the budget of this two movies on the internet and are correct. 
 Note that this does not imply that all the budgets we have are corrects but it implies that we have to deal with such a range of different values in a same variable.
 
 ```{r, message=FALSE, warning=FALSE, include=FALSE}
@@ -139,53 +140,18 @@ hist(dataset$gross)
 ```
 
 
-[//]: #No entenc per què vols cap d'aquestes dades.... 
-[//]: #explica'm si us plau quin sentit tenen i mirem de incorporar-ho
-
-[//]: #Sample mean
-[//]: #```{r, echo=TRUE}
-[//]: #(m=mean(dataset$gross))
-[//]: #```
-[//]: #Sample Sd
-[//]: #```{r, echo=TRUE}
-[//]: #cat("Sample Sd\n")
-[//]: #(s=sd(dataset$gross))
-[//]: #```
-[//]: #LogLik
-[//]: #```{r, echo=TRUE}
-[//]: #(loglik=sum(log(dnorm(dataset$gross,mean=mean(dataset$gross),sd=sd(dataset$gross)))))
-[//]: #```
-[//]: #AIC
-[//]: #```{r, echo=TRUE}
-[//]: #(AIC=-2*loglik+2*2)
-[//]: #```
-
-
-[//]: ##Plot Quantiles-Quantiles (Empirical-Theorical)
-[//]: #```{r, echo=TRUE}
-[//]: #par(mfrow=c(1,2))
-[//]: #qqplot(qnorm(ppoints(500),mean=m,sd=s),dataset$gross)
-[//]: #qqnorm(dataset$gross)
-[//]: #```
-
 As we have just seen values from budget and gross are in a bigger scale than the rest of our data. This is a problem when performing a linear model since it adds complexity to the model. In order to avoid so, we are going to scale those variables. We decided to apply $\sf{log_{10}}$ because it is easier to interprate later when showing (insert justification).
 
-[//]: Class comment:
-[//]: consider later when it increases that we have this variables in logarithm
-[//]: log G = bo + b1 log B + .....
-[//]: if we add one unit, we have to consider that we are in logarithm and we should express in exponential...
-[//]: is not the same if we consider without log and with log, so we have to consider.
-[//]: if we multiply per 10 is easier to later show.
 
 ```{r dollars, eval=FALSE, fig.height=4, fig.width=12, include=FALSE}
 dataset$gross <- log10(dataset$gross)
 dataset$budget <- log10(dataset$budget)
 dataset$duration <- dataset$duration
-dataset$directorfl <- log10(dataset$directorfl)
-dataset$actor1fl <- log10(dataset$actor1fl)
-dataset$actor2fl <- log10(dataset$actor2fl)
-dataset$actor3fl <- log10(dataset$actor3fl)
-dataset$castfl <- log10(dataset$castfl)
+#dataset$directorfl <- log10(dataset$directorfl) cannot bc of 0s
+#dataset$actor1fl <- log10(dataset$actor1fl)
+#dataset$actor2fl <- log10(dataset$actor2fl)
+#dataset$actor3fl <- log10(dataset$actor3fl)
+#dataset$castfl <- log10(dataset$castfl)
 par(mfrow=c(1,2))
 plot(density(dataset$gross), main="Density plot of gross")
 plot(density(dataset$budget), main="Density plot of budget")
@@ -207,19 +173,10 @@ boxplot(dataset$duration, main="Box Plot of film duration")
 
 ####Relationship between duration and gross
 
-We can see that there is not a clear correlation between the duration of a film and its revenue since we can see that transversally to the duration, we have the similar results in gross.
+We can see that there is not a clear correlation between the duration of a film and its revenue since we can see that transversally to the duration, we have the similar results in gross. It is true that the tendence over 150 minutes might be different but is not significant enough to take any conclusion from it.
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
 plot(dataset$duration, dataset$gross)
 ```
-
-[//]:Maybe we could consider passing duration to hours. What do you think about it?
-
-[//]:```{r, echo=FALSE, fig.height=4, fig.width=12}
-[//]:#dataset$duration <- dataset$duration/60
-[//]:par(mfrow=c(1,2))
-[//]:hist(dataset$duration, main="Histogram of film duration")
-[//]:boxplot(dataset$duration, main="Box Plot of film duration")
-[//]:```
 
 ###Title Year
 
@@ -230,7 +187,7 @@ barplot(table(dataset$titleyear), main="Bar Chart of title year")
 ```
 
 ####Relationship between years and gross
-We can see that there is not a strong correlation between the year of release and the gross obtained from those years. Even that there are some years better than others.
+We can see that there is not a strong correlation between the year of release and the gross obtained from those years. Even that there are some years better than others the trend seems to be the same across the years.
 
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
 plot(dataset$titleyear, dataset$gross)
@@ -249,7 +206,7 @@ We can see that the other variables Actor1fl, Actor2fl, Actor3fl, Castfl follow 
 
 ####Relationship of Directorfl, Actor1fl, Actor2fl, Actor3fl, Castfl with gross
 
-We can see a trend where the more likes Directors, Acts or Cast are they tend to have more revenue.
+We can see a trend where the more likes Directors, Acts or Cast have are not correlated with the gross of the movie we even see cases where there is an extreme value of likes which does not project in a high revenue.
 
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
 par(mfrow=c(2,3))
@@ -273,6 +230,8 @@ boxplot(dataset$facenumber_in_poster, main="Box Plot of face number")
 ```
 
 ####Relationship of Facenumber with Gross
+We can see that the number of faces in a poster that appear seems not to be related with the revenue directly. However, we could even say that than 6-7 faces in poster does not seem to be a positive factor to have a good revenue.
+
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
 plot(dataset$facenumber_in_poster, dataset$gross)
 ```
@@ -293,7 +252,7 @@ wordcloud(words = c("Action", "Comedy","Drama", "Terror"), freq = c(112, 365, 33
 
 ####Relationship of Genre with Gross
 
-We can see that action films from the dataset tend to have a slightly more income than drama, terror and comedy films. We also can see that there are more outlayers in the comedy genre.
+We can see that action films from the dataset tend to have a slightly more income than drama, terror and comedy films. We also can see that there are more outliers in the comedy genre.
 
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
 plot(dataset$genre, dataset$gross)
@@ -304,8 +263,6 @@ In this section we can see the correlation between the varibales. It is a bit of
 
 We can see that there is a positive correlation between gross and budget variable (0,729). On the other hand there is positive correlation between Cast Facebook Likes and Actor Facebook likes. 
 
-**EXPLICAR MÉS**
-
 ```{r pressure, echo=FALSE, message=FALSE, warning=FALSE, fig.height=4, fig.width=12}
 pairs(~.,dataset[,-c(1)])
 kable(cor(dataset[,-c(1, 5, 12, 13)]), format="latex", booktabs=TRUE) %>% 
@@ -314,19 +271,36 @@ kable(cor(dataset[,-c(1, 5, 12, 13)]), format="latex", booktabs=TRUE) %>%
 
 
 ## Fitting the complete model
+In this section we are going to perform a linear model with all the variables and their combinations so that we can see how it performs. We are going to exclude movietitle because it is a string and titleyear because we are going to user the factor we created previously (yearcat).
 
-```{r, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, include=FALSE}
+```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, results = 'hide'}
+#gross ~ (. - titleyear - movietitle) * (yearcat + genre),
+
 summary(completeModel<-lm(gross ~ (budget + duration + directorfl + actor1fl + actor2fl 
                                    + actor3fl + castfl + facenumber_in_poster 
-                                   + genre)^2, dataset))
+                                   + genre + yearcat)^2, dataset))
+
 ```
 
-```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.height=4, fig.width=12}
+As we can see in the NormQ-Q our model does not adjust perfectly to the model since we are having an adjusted r-squared of 0.50 and we are performing this model with all the possible combination of variables, which is a huge model. This is not necessary and should be avoided under all circumstances since our aim should be to have the minimal model possible which in the end, will be the one that will generalise the better too.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.height=6, fig.width=12}
 op<-par(mfrow=c(2,2))
 plot(completeModel)
 ```
 
 ## Use the stepwise procedure, by using the BIC criterion, to select the signicant variables
+
+In order to create a model with the most significant variables, we decided to choose the BIC criterion. We could choose BIC over AIC because BIC is more restrictive therefore we will have less variables which is what we are aiming for. In order to use the standart weight which is 2, we decided to use the log of the size of variables which will be more restrictive and will remove those interactions that are not relevant.
+
+We decided to compare two heuristic strategies when modelling: 
+
+- **Forward:** In this strategy we start the case with none available predictor variables and add one at a time
+
+- **Backward:** In this strategy we start with all available predictor variables and delete one at a
+time
+
+In any case we are later going to validate that the variables obtained from each model are significant.
 
 ```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, results = 'hide'}
 nullModel <- lm(gross ~ 1, dataset)
@@ -344,31 +318,60 @@ backwardModel <- step(completeModel,
 
 ``` 
 
-```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
-kable(summary(forwardModel)$coefficients, format="latex", booktabs=TRUE) %>% 
-  kable_styling(latex_options="scale_down")
-kable(summary(backwardModel)$coefficients, format="latex", booktabs=TRUE) %>% 
-  kable_styling(latex_options="scale_down")
+We can see that the forward model is a simpler model that hass less variables and all of them pass the p-value test.
+```{r, echo=TRUE, fig.height=3, fig.width=12, message=FALSE, warning=FALSE,fig.align='center'}
+kable(summary(forwardModel)$coefficients, format="latex", booktabs=TRUE)  %>%
+  kable_styling(position = "center")
 ```
+
+In contraposition with the forward model, here we have a way more complex model and not all their variables are significant. 
+```{r, echo=TRUE, fig.height=3, fig.width=12, message=FALSE, warning=FALSE,fig.align='center'}
+kable(summary(backwardModel)$coefficients, format="latex", booktabs=TRUE) %>%
+  kable_styling(position = "center")
+```
+
+Both have an R-squared of around 0.5 so their performance is similar. But as we said we are mostly interested in simple models so the forward model looks better to us.
 
 ## Check the presence of multicollinearity. If there is some non-interaction multicollinearity in the model, make the corresponding corrections.
-```{r, echo=TRUE, fig.height=2, fig.width=12, message=FALSE, warning=FALSE}
-kable(car::vif(forwardModel), format="latex", booktabs=TRUE) %>% 
-  kable_styling(latex_options="scale_down")
-kable(car::vif(backwardModel), format="latex", booktabs=TRUE) %>% 
-  kable_styling(latex_options="scale_down")
+We are now going to evaluate the multicollinearity of the models, which states if one prediction variable can be linearly predicted with the others in a substantial degree of accuracy. To evaluate the multicollinearity we are going to compute the VIF.
+
+
+```{r, echo=TRUE, fig.height=2, fig.width=12, message=FALSE, warning=FALSE, fig.align='center'}
+kable(car::vif(forwardModel), format="latex", booktabs=TRUE)%>%
+  kable_styling(position = "center")
+kable(car::vif(backwardModel), format="latex", booktabs=TRUE)%>%
+  kable_styling(position = "center")
 ```
 
+By checking the values of VIF, we see that from the forward model that is the simplest, the only variables that are significant, are budget and duration. 
 ```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 finalModel <- lm(gross ~ budget + duration, dataset)
-summary(finalModel)
+kable(summary(finalModel)$coefficients, format="latex", booktabs=TRUE)%>%
+  kable_styling(position = "center")
+```
+
+
+```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
+finalModel2 <- lm(gross ~ duration + actor3fl 
+                  + genre + yearcat + budget:genre 
+                  + budget:yearcat, dataset)
+kable(summary(finalModel2)$coefficients, format="latex", booktabs=TRUE)%>%
+  kable_styling(position = "center")
 ```
 
 ## Validate the model by checking the assumptions
+Once we have our model selected, we are going to validate it with anova comparing the null model with our final model.
 ```{r, echo=TRUE, fig.height=2, fig.width=12, message=FALSE, warning=FALSE}
 anova(nullModel, finalModel)
+anova(nullModel, finalModel2)
 ```
+In this case we can see that our model, **passes** the test since our p-value is lower than 0.05. 
 
 ## Interpret the final model
 
+Even our final model has an adjusted r-squared about 0.54 (that maybe seems so low), we can assume that does not exist multicollinearity in its variables, one of our purposes in this project.
+
+We rather a simple model with two predictor variables than a complex model with many of them. It seems difficult to predict gross variable in this dataset due its size (just 940 observations) and its outliers. The log transformation that we have applied to numerical variables have a big impact in the performance of our model, it was a great choice. 
+
+We can say that other kind of models should lead to better results than a simple linear regression model.
 
