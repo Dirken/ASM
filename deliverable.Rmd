@@ -121,8 +121,11 @@ boxplot(dataset$budget, main="Box Plot of budget")
 ```
 
 ####Relationship between budget and gross
+
+We can see that the revenue is correlated with the budget as we can see in the plot below:
+
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
-plot(dataset$genre, dataset$gross)
+plot(dataset$budget, dataset$gross)
 ```
 
 ###Gross
@@ -198,6 +201,8 @@ boxplot(dataset$duration, main="Box Plot of film duration")
 
 
 ####Relationship between duration and gross
+
+We can see that there is not a clear correlation between the duration of a film and it's revenue since we can see that transversally to the duration, we have the similar results in gross.
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
 plot(dataset$duration, dataset$gross)
 ```
@@ -293,31 +298,23 @@ kable(cor(dataset[,-c(1, 5, 12, 13)]), format="latex", booktabs=TRUE) %>%
 
 ## Fitting the complete model
 
-```{r}
-#Linear Regression
-summary(m1<-lm(gross ~ budget + duration 
-                        + titleyear + directorfl 
-                        + actor1fl + actor2fl 
-                        + actor3fl + castfl 
-                        + facenumber_in_poster + genre, dataset))
-
-op<-par(mfrow=c(2,2))
-plot(m1)
-par(op)
-
-summary(m2<-lm(gross ~ budget + duration + yearcat + directorfl + actor1fl + actor2fl + actor3fl + castfl + facenumber_in_poster + genre, dataset))
-op<-par(mfrow=c(2,2))
-plot(m2)
-par(op)
+```{r, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, include=FALSE}
+summary(completeModel<-lm(gross ~ (budget + duration + directorfl + actor1fl + actor2fl 
+                                   + actor3fl + castfl + facenumber_in_poster 
+                                   + genre)^2, dataset))
 ```
 
-## Fitting the complete model
-
-
-```{r}
-#step(m1, scope = list(lower=m1,upper=m2), direction="both", criterion = "BIC", k=log(940))
+```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.height=4, fig.width=12}
+op<-par(mfrow=c(2,2))
+plot(completeModel)
 ```
 
+## Use the stepwise procedure, by using the BIC criterion, to select the signicant variables
 
+
+```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
+nullModel <- lm(gross ~ 1, dataset)
+step(nullModel, scope = list(lower=nullModel,upper=completeModel), direction="both", criterion = "BIC", k=log(940), steps = 1000)
+```
 
 
