@@ -60,6 +60,49 @@ dataset$yearcat<-cut(dataset$titleyear, c(2000,2005,2010,2016),
 ## Exploratory Data Analysis
 In this section we are going to focus in explaining the most interesting conclusions of our data, perform an univariate and multivariate analysis of the variables in order to find outliers and see the relationship and structure of the dataset variables. We are also going to modify some variables in order to make the linear model perform better on them.
 
+
+###Movie title
+
+We have performed a cloud of the most relevant words that appear in the movies. To do so, we have removed stopwords and punctuation. We could have also done a stemming process but is not so important for us to do so.
+We can see that the top words are words such as: man, love, movie, house, american, life, big, etc.
+
+```{r, echo=FALSE, fig.height=7, fig.width=12, message=FALSE, warning=FALSE}
+library("tm")
+library("SnowballC")
+library("wordcloud")
+library("RColorBrewer")
+
+text <- dataset$movietitle
+# Load the data as a corpus
+docs <- Corpus(VectorSource(text))
+# Convert the text to lower case
+docs <- tm_map(docs, content_transformer(tolower))
+# Remove numbers
+#docs <- tm_map(docs, removeNumbers)
+# Remove english common stopwords
+docs <- tm_map(docs, removeWords, stopwords("english"))
+# Remove your own stop word
+
+# Remove punctuations
+docs <- tm_map(docs, removePunctuation)
+# Eliminate extra white spaces
+docs <- tm_map(docs, stripWhitespace)
+# Text stemming
+# docs <- tm_map(docs, stemDocument)
+dtm <- TermDocumentMatrix(docs)
+m <- as.matrix(dtm)
+v <- sort(rowSums(m),decreasing=TRUE)
+d <- data.frame(word = names(v),freq=v)
+set.seed(1234)
+wordcloud(words = d$word, freq = d$freq, min.freq = 1,
+          max.words=50, random.order=FALSE, rot.per=0.35, 
+          colors=brewer.pal(8, "Dark2"))
+#words that occur at least 4 times
+#findFreqTerms(dtm, lowfreq = 4)
+#terms that associate with word
+#findAssocs(dtm, terms = "man", corlimit = 0.3)
+```
+
 ###Budget
 
 We can see that there is a very disperse amount of values regarding the budget that range from a minimum of 400 thousand dollars (Napoleon Dynamite) to 300 million dollars (Pirates of the Caribbean: At World's End). Despite how crazy this numbers can appear to be, we have revised them by looking at the budget of this two movies on the interent and are correct. 
@@ -165,9 +208,7 @@ No problems for year, there is a certain expected balanced in years proportion e
 barplot(table(dataset$titleyear), main="Bar Chart of title year")
 ```
 
-I would also put here a log10 scale.
-
-###Directorfl
+###Directorfl, Actor1fl, Actor2fl, Actor3fl, Castfl
 
 In Director Facebook likes, we see that there is a value which appears in the majority of the cases: In this case, is the 0 value. Apart from this zero value, we see that small number of likes are more common than medium or higher number of likes. 
 
@@ -176,6 +217,7 @@ plot(density(dataset$directorfl), main="Density plot of Director Facebook Likes"
 #length(which(dataset$directorfl==0))/length(dataset$directorfl)
 ```
 
+We can see that the other variables Actor1fl, Actor2fl, Actor3fl, Castfl follow a similar fashion.
 
 ###Facenumber in poster
 
@@ -193,11 +235,10 @@ boxplot(dataset$facenumber_in_poster, main="Box Plot of face number")
 ###Genre
 In genre film we can observe that there are more comedy and drama films than action and terror films. 
 
+
 ```{r, echo=FALSE, fig.height=4, fig.width=12}
+par(mfrow=c(1,2))
 barplot(table(dataset$genre), main="Bar Chart of film genre")
-```
-```{r, echo=FALSE, fig.height=4, fig.width=12}
-summary(dataset$genre)
 library("wordcloud")
 set.seed(1234)
 wordcloud(words = c("Action", "Comedy","Drama", "Terror"), freq = c(112, 365, 330, 133) , min.freq = 50,
@@ -205,43 +246,7 @@ wordcloud(words = c("Action", "Comedy","Drama", "Terror"), freq = c(112, 365, 33
           colors=brewer.pal(3, "Dark2"))
 ```
 
-```{r, echo=FALSE, message=FALSE, warning=FALSE}
-library("tm")
-library("SnowballC")
-library("wordcloud")
-library("RColorBrewer")
 
-text <- dataset$movietitle
-# Load the data as a corpus
-docs <- Corpus(VectorSource(text))
-# Convert the text to lower case
-docs <- tm_map(docs, content_transformer(tolower))
-# Remove numbers
-#docs <- tm_map(docs, removeNumbers)
-# Remove english common stopwords
-docs <- tm_map(docs, removeWords, stopwords("english"))
-# Remove your own stop word
-
-# Remove punctuations
-docs <- tm_map(docs, removePunctuation)
-# Eliminate extra white spaces
-docs <- tm_map(docs, stripWhitespace)
-# Text stemming
-# docs <- tm_map(docs, stemDocument)
-dtm <- TermDocumentMatrix(docs)
-m <- as.matrix(dtm)
-v <- sort(rowSums(m),decreasing=TRUE)
-d <- data.frame(word = names(v),freq=v)
-head(d, 10)
-set.seed(1234)
-wordcloud(words = d$word, freq = d$freq, min.freq = 1,
-          max.words=50, random.order=FALSE, rot.per=0.35, 
-          colors=brewer.pal(8, "Dark2"))
-#words that occur at least 4 times
-findFreqTerms(dtm, lowfreq = 4)
-#terms that associate with word
-findAssocs(dtm, terms = "man", corlimit = 0.3)
-```
 
 Thanks to cross-correlation matrix, we can see that there is a positive correlation between gross and budget variable (0,729). On the other hand there is positive correlation between Cast Facebook Likes and Actor Facebook likes. 
 
@@ -250,9 +255,6 @@ pairs(~.,dataset[,-c(1)])
 kable(cor(dataset[,-c(1, 5, 12, 13)]), format="latex", booktabs=TRUE) %>% 
   kable_styling(latex_options="scale_down")
 ```
-
-
-
 
 ## Fitting the complete model
 
