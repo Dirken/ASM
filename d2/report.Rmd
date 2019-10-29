@@ -1,14 +1,16 @@
 ---
-title: "Ridge Regression"
+title: 'Advanced Statistical Modelling: Ridge Regression'
 author: "Ricard Meyerhofer & Joel Cantero"
 date: "29/10/2019"
 output:
+  pdf_document:
+    latex_engine: xelatex
   html_document:
     df_print: paged
-  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
 library("ggplot2")
 library("car")
 library("caret")
@@ -16,19 +18,20 @@ library("dplyr")
 library("broom")
 library("GGally")
 library("kableExtra")
+library("glmnet")
 set.seed(42)
 ```
 
-## Choosing the penalization parameter λ
+## Choosing the penalization parameter $\lambda$
 
-First of all, we are going to write an R function implementing the ridge regression penalization parameter λ choice based on the minimization of the mean squared prediction
+First of all, we are going to write an R function implementing the ridge regression penalization parameter$\lambda$ choice based on the minimization of the mean squared prediction
 error in a validation set (MSPEval(λ)).
 
 ```{r lambda_function}
 
-# Input: Matrix x and vector y corresponding to the training sample; matrix xval and vector yval corresponding to the validation set; a vector lambda.v of candidate values for λ.
-# Output: For each element λ in lambda.v, the value of MSPEval(λ).
-# Additionally you can plot these values against log(1 + λ) − 1, or against df(λ).
+# Input: Matrix x and vector y corresponding to the training sample; matrix xval and vector yval corresponding to the validation set; a vector lambda.v of candidate values for$\lambda$.
+# Output: For each element$\lambda$ in lambda.v, the value of MSPEval(λ).
+# Additionally you can plot these values against log(1 +$\lambda$) − 1, or against df(λ).
 
 ridge_lambda_search <- function(
   x, y,
@@ -103,13 +106,13 @@ ridge_lambda_search <- function(
 
 ```
 
-Now, we will write an R function implementing the ridge regression penalization parameter λ choice based on k-fold cross-validation (MSPEk−CV(λ))
+Now, we will write an R function implementing the ridge regression penalization parameter$\lambda$ choice based on k-fold cross-validation (MSPEk−CV(λ))
 
 ```{r}
 
-# Input: Matrix x and vector y corresponding to the training sample; matrix xval and vector yval corresponding to the validation set; a vector lambda.v of candidate values for λ.
-# Output: For each element λ in lambda.v, the value of MSPEval(λ).
-# Additionally you can plot these values against log(1 + λ) − 1, or against df(λ).
+# Input: Matrix x and vector y corresponding to the training sample; matrix xval and vector yval corresponding to the validation set; a vector lambda.v of candidate values for$\lambda$.
+# Output: For each element$\lambda$ in lambda.v, the value of MSPEval(λ).
+# Additionally you can plot these values against log(1 +$\lambda$) − 1, or against df(λ).
 
 ridge_lambda_search_cv <- function(
   x, y, lambda.v,
@@ -301,6 +304,8 @@ out.loocv.gcv <- ridge_lambda_search_loocv_gcv(x, y, lambda.v, plot = TRUE)
 ```
 
 We observe that the results of MSPE seem more stable in the LOOCV and GCV compared to 5-fold and 10-fold CV, as one would expect given the small size of the dataset. Furthermore, the validation set results are also relatively stable, although with a different curve than for the LOOCV/GCV.
+
+
 
 # Ridge regression for the Boston Housing data
 
