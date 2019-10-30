@@ -42,7 +42,6 @@ Once we have build these two functions, we are going to use the prostate data us
 ## Ridge regression based on $MSPE_{val}(\lambda)$ 
 In order to choose the penalization parameter $\lambda$, we are going to write a function implementing the ridge regression penalization parameter $\lambda$ choice based on the minimization of the $MSPE_{val}(\lambda)$.
 
-
 ```{r lambda_function}
 ridge <- function(x, y, x.val, y.val, lambda.v) {
   result <- data.frame(lambda=lambda.v, mspe=rep(0,length(lambda.v)), 
@@ -73,7 +72,7 @@ ridge <- function(x, y, x.val, y.val, lambda.v) {
 
 
 ## Ridge regression based on $MSPE_{k-CV}(\lambda)$
-Now, we will write an R function implementing the ridge regression penalization parameter$\lambda$ choice based on k-fold cross-validation $MSPE_{k−CV}(\lambda)$
+Now, we will write an R function implementing the ridge regression penalization parameter$\lambda$ choice based on k-fold cross-validation $MSPE_{k−CV}(\lambda)$. 
 
 ```{r}
 
@@ -167,7 +166,7 @@ prostate$train <- as.logical(prostate$train)
 prostate <- as.data.frame(prostate)
 data <- prostate[,1:9]
 lambda.max <- 1e5
-n.lambdas <- 25
+n.lambdas <- 20
 lambda.v <- exp(seq(0,log(lambda.max+1),length=n.lambdas))-1
 validation.ind <- prostate$train
 validation <- data[!validation.ind,]
@@ -203,9 +202,7 @@ result.loocv <- ridge_cv(x, y, cv = nrow(x), lambda.v) #n-fold CV
 result.loocv.gcv <- ridge_loocv_gcv(x, y, lambda.v)
 ```
 
-We observe that the results of MSPE seem more stable in the LOOCV and GCV compared to 5-fold and 10-fold CV, as one would expect given the small size of the dataset. Furthermore, the validation set results are also relatively stable, although with a different curve than for the LOOCV/GCV.
-
-
+We can see from the plots that MSPE results are more solid in LOOCV and GCV than 5-fold and 10-fold. On the other hand, if we observe the validation data seems that it behaves the same way even that the curvature is different. We have to say that prostate dataset just has 97 observations and that has an impacts.
 \newpage
 
 
@@ -233,93 +230,76 @@ MEDV | Median value of owner-occupied homes in $1000's | Numeric |
 
 In this exercise we are going to use ridge regression on the Boston Housing dataset to fit the regression model where the response variable is $MEDV$ and the explanatory variables are the remaining 13 variables shown in the list. As we can see when loading the data, there are more variables than the ones listed ($TOWN$, $TOWNNO$, $LON$, $LAT$, $CMEDV$). We decided not to use them since the statement explicitly defines which to use.
 
-```{r, echo=TRUE}
+```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, results = 'hide'}
 load("boston.Rdata")
 names(boston.c)
 dataset <- boston.c[,-c(1:5)] #"TOWN"    "TOWNNO"  "TRACT"   "LON"     "LAT"
 dataset$CMEDV <- NULL
 ```
 
-Beside from eliminating variables, we divided the dataset between train and test. To do so, we have decided to do 3/4 training, 1/4 test.
-```{r, echo=TRUE, results = 'hide'}
-set.seed(42)
-trainIndex <- createDataPartition(dataset$MEDV, p = 0.75, list = F)
+Besides from eliminating variables, we divided the dataset between train and test. To do so, we have decided to do 3/4 training, 1/4 test.
+```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, results = 'hide'}
+trainIndex <- createDataPartition(dataset$MEDV, p =0.75, list = F)
 train <- dataset[trainIndex,]
 test <- dataset[-trainIndex,]
 ```
 
-```{r}
-train
+We perform the ridge regression with 10 fold cross-validation in order to choose the tuning parameter lambda, we take the smallest lambda with $cv.out\$lambda.min$ and we use this lambda to make the predictions.
+```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, results = 'hide'}
 x <- model.matrix(MEDV~., train)[,-1]
 y = train$MEDV
 y.test = y[-trainIndex]
-
 #perform cross-validation to choose tuning parameter lambda
-cv.out <- cv.glmnet(x, y, alpha = 0)
-plot(cv.out)
-bestlambda <- cv.out$lambda.min #lambda that results in lowest cross validation error
-grid <- 10^seq(10,-2,length = 100) #from 10^10 to 10^-2 
-ridge.mod <- glmnet(x,y,alpha= 0, lambda = grid, thresh = 1e-12)
-#make predictions for lambda = bestlambda 
-ridge.pred <- predict(ridge.mod, s=bestlambda, newx = x[-trainIndex,])
+lambda.max <- 1e5  
+n.lambdas <- 50
+lambda.v <- exp(seq(10^-2,log(lambda.max+1),length=n.lambdas))-1  
+mod <- glmnet(x, y, alpha = 0, lambda = lambda.v)
+ridge.mod <- cv.glmnet(x,y,alpha= 0, lambda = lambda.v)
+bestlambda <- ridge.mod$lambda.min #lambda that results in lowest cross validation error
+
 ```
 
-
-```{r, echo=TRUE}
+```{r, echo=FALSE, fig.height=6, fig.width=12}
 library(plotmo)
-
-glmcoef<-coef(ridge.mod,bestlambda )
+glmcoef<-coef(mod,bestlambda)
 coef.increase<-dimnames(glmcoef[glmcoef[,1]>0,0])[[1]]
 coef.decrease<-dimnames(glmcoef[glmcoef[,1]<0,0])[[1]]
-
-#get ordered list of variables as they appear at smallest lambda
-allnames<-names(coef(ridge.mod)[,
-            ncol(coef(ridge.mod))][order(coef(ridge.mod)[,
-            ncol(coef(ridge.mod))],decreasing=TRUE)])
-
-#remove intercept
-allnames<-setdiff(allnames,allnames[grep("Intercept",allnames)])
-
-#assign colors
-cols<-rep("gray",length(allnames))
-cols[allnames %in% coef.increase]<-"green"      # higher medv is good
-cols[allnames %in% coef.decrease]<-"red"        # lower medv is not
-
-plot_glmnet(ridge.mod,label=TRUE,s=bestlambda,col=cols)
+allnames<-names(coef(mod)[,
+            ncol(coef(mod))][order(coef(mod)[,
+            ncol(coef(mod))],decreasing=TRUE)])
+plot_glmnet(mod,label=TRUE,s=bestlambda)
 
 ```
 
-
-To select the best model, we now use 10x10-CV using the lambda that best minimised 
-the error in cross-validation, which is lambda.ridge.
-
+To select the best model, we now use 10x10-CV using the lambda that best minimised the error in cross-validation, which is lambda.ridge.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, result='hide'}
 trainContrl <- trainControl (method="repeatedcv", number=10, repeats=10)
-model <- train(MEDV ~ ., data = train, trControl=trainContrl, method='glmnet',tuneGrid=expand.grid(alpha=0,lambda=bestlambda))
-model.ridge.FINAL <- glmnet(x, y, alpha = 0, lambda = bestlambda)
+ridge.mod10 <- caret::train(MEDV ~ .,data = train,  trControl=trainContrl, method='glmnet', 
+                                    tuneGrid=expand.grid(alpha=0,lambda=bestlambda))
 
-
-
+ridge <- glmnet(x, y, alpha = 0, lambda = bestlambda)
 normalized <- (length(train$MEDV)-1)*var(train$MEDV)
-NMSE.ridge.train.error <- crossprod(predict (model) - train$MEDV) / normalized
+NMSE.ridge.train.error <- crossprod(predict (ridge.mod10 ) - train$MEDV) / normalized
 normTest <- (length(test$MEDV)-1)*var(test$MEDV)
-sse_raw <- test$MEDV - model.ridge.FINAL$a0- data.matrix(test[,-dim(train)[2]]) %*% model.ridge.FINAL$beta 
-sse <- crossprod (as.matrix(sse_raw)) 
-
-NMSE.ridge.test.error <- sse/normTest
+sse_raw <- test$MEDV - ridge$a0- data.matrix(test[,-dim(train)[2]]) %*% ridge$beta 
+NMSE.ridge.test.error <- crossprod (as.matrix(sse_raw)) /normTest
 ```
 
+The final model obtained has a $Df=13$ which actually is the number of coefficients we had in our model and we have a deviance of 71.07\% which has room for improvement but is not a bad result. Also the difference we have between train and test is not very big.
+We can take the following conclusions from the results:
+\begin{itemize}
+\item We can see that as we could expect by instinct, the price of a house increases as more rooms it has. 
+\item If Charles River ($CHAR$) is near, the price of the suburb is higher. 
+\item $LSTAT$ implies a decrease in the house of the price.
+\item $RAD$ and $MEDV$ are directly related.
+\item Increase of $PTRATIO$ is associated with house price.
+\item An increase in $DIS$ normally implies a decrease in $MEDV$.
+\item $NOX$ puts the value down of a house.
+\item $AGE$ and $INDUS$ doesn't seem to affect. 
+
+\end{itemize}
+
+All the aformentioned makes sense since anyone wants to commute long ways to work, nor living in a polluted area, preferably everyone wants to be near nature, etc. 
 
 
-
-```{r,  echo = FALSE, message=FALSE, warning=FALSE,results='asis'}
-error.models <- tibble(regression_method = "ridge regression",
-                        train_MSE = as.numeric(NMSE.ridge.train.error),
-                        test_MSE = as.numeric(NMSE.ridge.test.error))
-error.models%>%
-  kable(format = "latex", booktabs = TRUE , digits = 3,
-        caption = "Model Errors Summary") %>% 
-  kable_styling(position = "center",latex_options = c("HOLD_position"),
-                font_size = 9)
-```
