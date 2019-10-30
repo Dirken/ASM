@@ -244,7 +244,7 @@ train <- dataset[trainIndex,]
 test <- dataset[-trainIndex,]
 ```
 
-We perform the ridge regression with 10 fold cross-validation in order to choose the tuning parameter lambda, we take the smallest lambda with $cv.out\$lambda.min$ and we use this lambda to make the predictions.
+We perform the ridge regression with 10 fold cross-validation in order to choose the tuning parameter lambda, we take the smallest lambda with $ridge.mod\$lambda.min$ and we use this lambda to make the predictions.
 ```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, results = 'hide'}
 x <- model.matrix(MEDV~., train)[,-1]
 y = train$MEDV
@@ -271,11 +271,10 @@ plot_glmnet(mod,label=TRUE,s=bestlambda)
 
 ```
 
-To select the best model, we now use 10x10-CV using the lambda that best minimised the error in cross-validation, which is lambda.ridge.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, result='hide'}
 trainContrl <- trainControl (method="repeatedcv", number=10, repeats=10)
-ridge.mod10 <- caret::train(MEDV ~ .,data = train,  trControl=trainContrl, method='glmnet', 
+ridge.mod10 <- train(MEDV ~ .,data = train,  trControl=trainContrl, method='glmnet', 
                                     tuneGrid=expand.grid(alpha=0,lambda=bestlambda))
 
 ridge <- glmnet(x, y, alpha = 0, lambda = bestlambda)
