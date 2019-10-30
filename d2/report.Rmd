@@ -22,48 +22,31 @@ library("glmnet")
 set.seed(42)
 ```
 
-## Choosing the penalization parameter $\lambda$
+# Choosing the penalization parameter $\lambda$
+The objective of this exercise is to implement Ridge Regression with two different approaches: $MSPE_{val}(\lambda)$ and $MSPE_{k-CV}(\lambda)$. In both cases we are going to take as input data the following:
+\begin{itemize}
+\item Matrix x and vector y corresponding to the training sample.
+\item Matrix $x_{val}$ and vector $y_{val}$ corresponding to the validation set.
+\item Vector $lambda.v$ of candidate values for $\lambda$.
+\end{itemize}
+We are going to output for each element $\lambda$ in $lambda.v$ and the value of the $MSPE_{val}(\lambda)$ / $MSPE_{k-CV}(\lambda)$. Furthermore, we are going to plot these values against $log(1+ \lambda)-1$.
 
-First of all, we are going to write an R function implementing the ridge regression penalization parameter$\lambda$ choice based on the minimization of the mean squared prediction
-error in a validation set (MSPEval(λ)).
+Once we have build these two functions, we are going to use the prostate data used in class. We are going to choose a $\lambda$ according to:
+\begin{itemize}
+\item Behaviour in the validation set (30 validations not included in the training sample)
+\item 5-fold, 10-fold cross-validation.
+\item Compare our results with those obtained with leave-one-out and generalized cross-validation.
+\end{itemize}
+
+## Ridge regression based on $MSPE_{val}(\lambda)$ 
+In order to choose the penalization parameter $\lambda$, we are going to write a function implementing the ridge regression penalization parameter $\lambda$ choice based on the minimization of the $MSPE_{val}(\lambda)$.
+
 
 ```{r lambda_function}
-
-# Input: Matrix x and vector y corresponding to the training sample; matrix xval and vector yval corresponding to the validation set; a vector lambda.v of candidate values for$\lambda$.
-# Output: For each element$\lambda$ in lambda.v, the value of MSPEval(λ).
-# Additionally you can plot these values against log(1 +$\lambda$) − 1, or against df(λ).
-
-ridge_lambda_search <- function(
-  x, y,
-  x.valid,
-  y.valid,
-  lambda.v,
-  plot=TRUE
-) {
-  
-  # Ensure x/y are matrix/vector
-  if(!is.matrix(x)) {
-    x <- as.matrix(x)
-  }
-  if(!is.vector(y)) {
-    y <- y[,,drop=TRUE]
-  }
-  if(!is.matrix(x.valid)) {
-    x.valid <- as.matrix(x.valid)
-  }
-  if(!is.vector(y.valid)) {
-    y.valid <- y.valid[,,drop=TRUE]
-  }
-  
-  # Create data.frame to store output
-  if(!is.vector(lambda.v)) {
-    lambda.v <- lambda.v[,,drop=TRUE]
-  }
+ridge_lambda_search <- function(x, y, x.val, y.val, lambda.v) {
   n <- length(lambda.v)
   out <- data.frame(lambda=lambda.v, mspe=rep(0,n), df=rep(0,n))
-  
   p <- ncol(x)
-
   # Get x Singular Value Decomposition
   x.svd <- svd(x)
   d <- x.svd$d
@@ -79,9 +62,9 @@ ridge_lambda_search <- function(
     # Compute beta
     beta <- xx_inv %*% t(x) %*% y
     # Compute y prediciton y.hat
-    y.hat <- x.valid %*% beta
+    y.hat <- x.val %*% beta
     # Compute MSPE
-    mspe <- sum((y.valid - y.hat)^2) / length(y.valid)
+    mspe <- sum((y.val - y.hat)^2) / length(y.val)
     # Compute df depending on the singular values
     df <- sum(d^2 / (d^2 +lambda))
     # Add results to output
@@ -89,52 +72,29 @@ ridge_lambda_search <- function(
     out$df[i] <- df
   }
   
-  if(plot) {
-    # Plot mspe-log(lamba+1)
-    plot(mspe~log(1+lambda), out, col=2)
-    lambda.min <- out$lambda[which.min(out$mspe)]
-    abline(v=log(1+lambda.min),col=2,lty=2)
-    # Plot mspe-df
-    plot(mspe~df, out, col=3)
-    df.min <- out$df[which.min(out$mspe)]
-    abline(v=df.min,col=3,lty=2)
-  }
-  
+  # Plot mspe-log(lamba+1)
+  plot(mspe~log(1+lambda), out, col=2)
+  lambda.min <- out$lambda[which.min(out$mspe)]
+  abline(v=log(1+lambda.min),col=2,lty=2)
+  # Plot mspe-df
+  plot(mspe~df, out, col=3)
+  df.min <- out$df[which.min(out$mspe)]
+  abline(v=df.min,col=3,lty=2)
   return(out)
- 
 }
 
 ```
 
-Now, we will write an R function implementing the ridge regression penalization parameter$\lambda$ choice based on k-fold cross-validation (MSPEk−CV(λ))
+
+
+## Ridge regression based on $MSPE_{k-CV}(\lambda)$
+Now, we will write an R function implementing the ridge regression penalization parameter$\lambda$ choice based on k-fold cross-validation $MSPE_{k−CV}(\lambda)$
 
 ```{r}
 
-# Input: Matrix x and vector y corresponding to the training sample; matrix xval and vector yval corresponding to the validation set; a vector lambda.v of candidate values for$\lambda$.
-# Output: For each element$\lambda$ in lambda.v, the value of MSPEval(λ).
-# Additionally you can plot these values against log(1 +$\lambda$) − 1, or against df(λ).
-
-ridge_lambda_search_cv <- function(
-  x, y, lambda.v,
-  cv=10,
-  plot=TRUE
-) {
-  
-  # Ensure x/y are matrix/vector
-  if(!is.matrix(x)) {
-    x <- as.matrix(x)
-  }
-  if(!is.vector(y)) {
-    y <- y[,,drop=TRUE]
-  }
-  
-  # Create data.frame to store output
-  if(!is.vector(lambda.v)) {
-    lambda.v <- lambda.v[,,drop=TRUE]
-  }
+ridge_lambda_search_cv <- function(x, y, lambda.v, cv=10) {
   n <- length(lambda.v)
   out <- data.frame(lambda=lambda.v, mspe=rep(0,n), df=rep(0,n))
-
   p <- ncol(x)
 
   # Per lambda candidate compute coefficients, MSPE and df
@@ -149,8 +109,8 @@ ridge_lambda_search_cv <- function(
       # Get training and validation data for fold
       x.train <- x[-fold,]
       y.train <- y[-fold]
-      x.valid <- x[fold,]
-      y.valid <- y[fold]
+      x.val <- x[fold,]
+      y.val <- y[fold]
       # Get x Singular Value Decomposition
       x.svd <- svd(x.train)
       d <- x.svd$d
@@ -162,9 +122,9 @@ ridge_lambda_search_cv <- function(
       # Compute beta 
       beta <- xx_inv %*% t(x.train) %*% y.train
       # Compute y prediciton y.hat
-      y.hat <- x.valid %*% beta
+      y.hat <- x.val %*% beta
       # Compute MSPE
-      mspe <- sum((y.valid - y.hat)^2) / length(y.valid)
+      mspe <- sum((y.val - y.hat)^2) / length(y.val)
       # Compute df depending on the singular values
       df <- sum(d^2 / (d^2 +lambda))
       # Add results to output
@@ -176,55 +136,35 @@ ridge_lambda_search_cv <- function(
     out$df[i] <- mean(out.cv$df)
     
   }
-  
-  if(plot) {
-    # Plot mspe-log(lamba+1)
-    plot(mspe~log(1+lambda), out, col=2)
-    lambda.min <- out$lambda[which.min(out$mspe)]
-    abline(v=log(1+lambda.min),col=2,lty=2)
-    # Plot mspe-df
-    plot(mspe~df, out, col=3)
-    df.min <- out$df[which.min(out$mspe)]
-    abline(v=df.min,col=3,lty=2)
-  }
+
+  # Plot mspe-log(lamba+1)
+  plot(mspe~log(1+lambda), out, col=2)
+  lambda.min <- out$lambda[which.min(out$mspe)]
+  abline(v=log(1+lambda.min),col=2,lty=2)
+  # Plot mspe-df
+  plot(mspe~df, out, col=3)
+  df.min <- out$df[which.min(out$mspe)]
+  abline(v=df.min,col=3,lty=2)
   
   return(out)
   
 }
 
 ```
-Now we are going to consider the prostate date used in class. We will use our routines to choose the penalization parameter by the following criteria: behavior in the validation set (the 30 observations not being in the training sample); 5-fold and 10-fold cross-validation. Then, we will compare our results with those obtained when using leave-one-out and generalized cross-validation.
+
+## Comparation between penalization parameters of $MSPE_{val}(\lambda)$ and $MSPE_{k-CV}(\lambda)$
 
 ```{r prostate}
-ridge_lambda_search_loocv_gcv <- function(
-  x, y, lambda.v,
-  plot=TRUE
-) {
-  
-  # Ensure x/y are matrix/vector
-  if(!is.matrix(x)) {
-    x <- as.matrix(x)
-  }
-  if(!is.vector(y)) {
-    y <- y[,,drop=TRUE]
-  }
-  
-  # Create data.frame to store output
-  if(!is.vector(lambda.v)) {
-    lambda.v <- lambda.v[,,drop=TRUE]
-  }
+ridge_lambda_search_loocv_gcv <- function(x, y, lambda.v) {
   l <- length(lambda.v)
-  out <- data.frame(lambda=lambda.v, loocv=rep(0,l), gcv=rep(0,l),
-                    df=rep(0,l))
+  out <- data.frame(lambda=lambda.v, loocv=rep(0,l), gcv=rep(0,l),df=rep(0,l))
   n <- nrow(x)
   p <- ncol(x)
-  
   # Get x Singular Value Decomposition
   x.svd <- svd(x)
   d <- x.svd$d
   v <- x.svd$v
   u <- x.svd$u
-  
   # Per lambda candidate compute coefficients, MSPE and df
   for(i in 1:l) {
     lambda <- lambda.v[i]
@@ -246,61 +186,60 @@ ridge_lambda_search_loocv_gcv <- function(
     out$df[i] <- df
   }
   
-  if(plot) {
-    # Plot loocv-log(lamba+1)
-    plot(loocv~log(1+lambda), out, col=2)
-    lambda.min <- out$lambda[which.min(out$loocv)]
-    abline(v=log(1+lambda.min),col=2,lty=2)
-    # Plot loocv-df
-    plot(loocv~df, out, col=3)
-    df.min <- out$df[which.min(out$loocv)]
-    abline(v=df.min,col=3,lty=2)
+  # Plot loocv-log(lamba+1)
+  plot(loocv~log(1+lambda), out, col=2)
+  lambda.min <- out$lambda[which.min(out$loocv)]
+  abline(v=log(1+lambda.min),col=2,lty=2)
+  # Plot loocv-df
+  plot(loocv~df, out, col=3)
+  df.min <- out$df[which.min(out$loocv)]
+  abline(v=df.min,col=3,lty=2)
 
-    # Plot loocv-log(lamba+1)
-    plot(gcv~log(1+lambda), out, col=2)
-    lambda.min <- out$lambda[which.min(out$gcv)]
-    abline(v=log(1+lambda.min),col=2,lty=2)
-    # Plot loocv-df
-    plot(gcv~df, out, col=3)
-    df.min <- out$df[which.min(out$gcv)]
-    abline(v=df.min,col=3,lty=2)
-  }
-  
+  # Plot loocv-log(lamba+1)
+  plot(gcv~log(1+lambda), out, col=2)
+  lambda.min <- out$lambda[which.min(out$gcv)]
+  abline(v=log(1+lambda.min),col=2,lty=2)
+  # Plot loocv-df
+  plot(gcv~df, out, col=3)
+  df.min <- out$df[which.min(out$gcv)]
+  abline(v=df.min,col=3,lty=2)
   return(out)
-  
 }
+```
+
+```{r}
+
+###no dplyr###
 
 # Data load and pre-process
 prostate <- read.table("prostate_data.txt", header=TRUE, row.names = 1)
-data <- prostate %>%
-  dplyr::select(-train)
-
+data <- prostate %>% dplyr::select(-train)
 # No gold rule for choosing this 
 lambda.max <- 1e5
 n.lambdas <- 25
 # Evenly spaced in scale of logarithm
 lambda.v <- exp(seq(0,log(lambda.max+1),length=n.lambdas))-1
-
-## With Validation data
+# With Validation data
 validation.ind <- prostate$train
 validation <- data[!validation.ind,]
 training <- data[validation.ind,]
 x <- training %>% select(-lpsa) %>% scale(center = T, scale = T)
 y <- training %>% select(lpsa) %>% scale(center = T, scale = F)
-x.valid <- validation %>% select(-lpsa) %>% scale(center = T, scale = T)
-y.valid <- validation %>% select(lpsa) %>% scale(center = T, scale = F)
-out.valid <- ridge_lambda_search(x, y, x.valid, y.valid, lambda.v, plot = TRUE)
-
+x.val <- validation %>% select(-lpsa) %>% scale(center = T, scale = T)
+y.val <- validation %>% select(lpsa) %>% scale(center = T, scale = F)
+out.valid <- ridge_lambda_search(x, y, x.val, y.val, lambda.v)
 # 5-fold and 10-fold CV
-## With CV 
+# With CV 
 x <- data %>% select(-lpsa) %>% scale(center = T, scale = T)
 y <- data %>% select(lpsa) %>% scale(center = T, scale = F)
-out.5.cv <- ridge_lambda_search_cv(x, y, cv = 10, lambda.v, plot = TRUE)
-out.10.cv <- ridge_lambda_search_cv(x, y, cv = 10, lambda.v, plot = TRUE)
 
-## LOOCV and GCV estimates
-out.loocv <- ridge_lambda_search_cv(x, y, cv = nrow(x), lambda.v, plot = TRUE)
-out.loocv.gcv <- ridge_lambda_search_loocv_gcv(x, y, lambda.v, plot = TRUE)
+###no dplyr###
+
+out.5.cv <- ridge_lambda_search_cv(x, y, cv = 10, lambda.v)
+out.10.cv <- ridge_lambda_search_cv(x, y, cv = 10, lambda.v)
+# LOOCV and GCV estimates
+out.loocv <- ridge_lambda_search_cv(x, y, cv = nrow(x), lambda.v)
+out.loocv.gcv <- ridge_lambda_search_loocv_gcv(x, y, lambda.v)
 ```
 
 We observe that the results of MSPE seem more stable in the LOOCV and GCV compared to 5-fold and 10-fold CV, as one would expect given the small size of the dataset. Furthermore, the validation set results are also relatively stable, although with a different curve than for the LOOCV/GCV.
