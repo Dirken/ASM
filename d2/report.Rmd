@@ -158,7 +158,7 @@ ridge_loocv_gcv <- function(x, y, lambda.v) {
 }
 ```
 
-```{r, echo=TRUE}
+```{r, include=FALSE}
 
 prostate <- fread(file="prostate_data.txt", header=TRUE)
 prostate$train <- as.logical(prostate$train)
@@ -178,23 +178,34 @@ y <- scale(training[,9], center = T, scale = F)
 
 x.val <- scale(validation[,1:8], center = T, scale = T)
 y.val <- scale(validation[,9], center = T, scale = F)
-op<-par(mfrow=c(2,2))
+```
+
+### Validation
+```{r, echo=TRUE, fig.height=6, fig.width=12}
+op<-par(mfrow=c(1,2))
 result.valid <- ridge(x, y, x.val, y.val, lambda.v)
-# 5-fold and 10-fold CV
-# With CV 
+```
+
+### 5-fold and 10-fold CV
+```{r, echo=TRUE, fig.height=12, fig.width=12}
 x <- scale(data[,1:8], center = T, scale = T)
 y <- scale(data[,9], center = T, scale = F)
 op<-par(mfrow=c(2,2))
 result.5.cv <- ridge_cv(x, y, cv = 10, lambda.v)
 result.10.cv <- ridge_cv(x, y, cv = 10, lambda.v)
-# LOOCV and GCV estimates
-op<-par(mfrow=c(2,2))
-result.loocv <- ridge_cv(x, y, cv = nrow(x), lambda.v)
+```
+
+\newpage
+### LOOCV and GCV 
+```{r, echo=TRUE, fig.height=12, fig.width=12}
+op<-par(mfrow=c(3,2))
+result.loocv <- ridge_cv(x, y, cv = nrow(x), lambda.v) #n-fold CV
 result.loocv.gcv <- ridge_loocv_gcv(x, y, lambda.v)
 ```
 
 We observe that the results of MSPE seem more stable in the LOOCV and GCV compared to 5-fold and 10-fold CV, as one would expect given the small size of the dataset. Furthermore, the validation set results are also relatively stable, although with a different curve than for the LOOCV/GCV.
 
+\newpage
 
 
 # Ridge regression for the Boston Housing data
