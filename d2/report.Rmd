@@ -15,7 +15,6 @@ library("ggplot2")
 library("car")
 library("caret")
 library("dplyr")
-library("broom")
 library("GGally")
 library("kableExtra")
 library("glmnet")
@@ -45,8 +44,9 @@ In order to choose the penalization parameter $\lambda$, we are going to write a
 
 
 ```{r lambda_function}
-ridge_lambda_search <- function(x, y, x.val, y.val, lambda.v) {
-  result <- data.frame(lambda=lambda.v, mspe=rep(0,length(lambda.v)), df=rep(0,length(lambda.v)))
+ridge <- function(x, y, x.val, y.val, lambda.v) {
+  result <- data.frame(lambda=lambda.v, mspe=rep(0,length(lambda.v)), 
+                       df=rep(0,length(lambda.v)))
   x.svd <- svd(x)
   for(i in 1:length(lambda.v)) {
     lambda <- lambda.v[i]
@@ -77,8 +77,9 @@ Now, we will write an R function implementing the ridge regression penalization 
 
 ```{r}
 
-ridge_lambda_search_cv <- function(x, y, lambda.v, cv=10) {
-  result <- data.frame(lambda=lambda.v, mspe=rep(0,length(lambda.v)), df=rep(0,length(lambda.v)))
+ridge_cv <- function(x, y, lambda.v, cv=10) {
+  result <- data.frame(lambda=lambda.v, mspe=rep(0,length(lambda.v)), 
+                       df=rep(0,length(lambda.v)))
   for(i in 1:length(lambda.v)) {
     lambda.v[i] <- lambda.v[i]
     folds <- createFolds(1:nrow(x), k = cv)
@@ -121,7 +122,7 @@ ridge_lambda_search_cv <- function(x, y, lambda.v, cv=10) {
 ## Comparation between penalization parameters of $MSPE_{val}(\lambda)$ and $MSPE_{k-CV}(\lambda)$
 
 ```{r prostate}
-ridge_lambda_search_loocv_gcv <- function(x, y, lambda.v) {
+ridge_loocv_gcv <- function(x, y, lambda.v) {
   l <- length(lambda.v)
   result <- data.frame(lambda=lambda.v, loocv=rep(0,l), gcv=rep(0,l),df=rep(0,l))
   n <- nrow(x)
@@ -157,7 +158,7 @@ ridge_lambda_search_loocv_gcv <- function(x, y, lambda.v) {
 }
 ```
 
-```{r}
+```{r, echo=TRUE}
 
 prostate <- fread(file="prostate_data.txt", header=TRUE)
 prostate$train <- as.logical(prostate$train)
@@ -177,16 +178,19 @@ y <- scale(training[,9], center = T, scale = F)
 
 x.val <- scale(validation[,1:8], center = T, scale = T)
 y.val <- scale(validation[,9], center = T, scale = F)
-result.valid <- ridge_lambda_search(x, y, x.val, y.val, lambda.v)
+op<-par(mfrow=c(2,2))
+result.valid <- ridge(x, y, x.val, y.val, lambda.v)
 # 5-fold and 10-fold CV
 # With CV 
 x <- scale(data[,1:8], center = T, scale = T)
 y <- scale(data[,9], center = T, scale = F)
-result.5.cv <- ridge_lambda_search_cv(x, y, cv = 10, lambda.v)
-result.10.cv <- ridge_lambda_search_cv(x, y, cv = 10, lambda.v)
+op<-par(mfrow=c(2,2))
+result.5.cv <- ridge_cv(x, y, cv = 10, lambda.v)
+result.10.cv <- ridge_cv(x, y, cv = 10, lambda.v)
 # LOOCV and GCV estimates
-result.loocv <- ridge_lambda_search_cv(x, y, cv = nrow(x), lambda.v)
-result.loocv.gcv <- ridge_lambda_search_loocv_gcv(x, y, lambda.v)
+op<-par(mfrow=c(2,2))
+result.loocv <- ridge_cv(x, y, cv = nrow(x), lambda.v)
+result.loocv.gcv <- ridge_loocv_gcv(x, y, lambda.v)
 ```
 
 We observe that the results of MSPE seem more stable in the LOOCV and GCV compared to 5-fold and 10-fold CV, as one would expect given the small size of the dataset. Furthermore, the validation set results are also relatively stable, although with a different curve than for the LOOCV/GCV.
@@ -217,7 +221,7 @@ MEDV | Median value of owner-occupied homes in $1000's | Numeric |
 
 In this exercise we are going to use ridge regression on the Boston Housing dataset to fit the regression model where the response variable is $MEDV$ and the explanatory variables are the remaining 13 variables shown in the list. As we can see when loading the data, there are more variables than the ones listed ($TOWN$, $TOWNNO$, $LON$, $LAT$, $CMEDV$). We decided not to use them since the statement explicitly defines which to use.
 
-```{r, include=FALSE}
+```{r, echo=TRUE}
 load("boston.Rdata")
 names(boston.c)
 dataset <- boston.c[,-c(1:5)] #"TOWN"    "TOWNNO"  "TRACT"   "LON"     "LAT"
@@ -225,7 +229,7 @@ dataset$CMEDV <- NULL
 ```
 
 Beside from eliminating variables, we divided the dataset between train and test. To do so, we have decided to do 3/4 training, 1/4 test.
-```{r, include=FALSE}
+```{r, echo=TRUE, results = 'hide'}
 set.seed(42)
 trainIndex <- createDataPartition(dataset$MEDV, p = 0.75, list = F)
 train <- dataset[trainIndex,]
@@ -246,12 +250,10 @@ grid <- 10^seq(10,-2,length = 100) #from 10^10 to 10^-2
 ridge.mod <- glmnet(x,y,alpha= 0, lambda = grid, thresh = 1e-12)
 #make predictions for lambda = bestlambda 
 ridge.pred <- predict(ridge.mod, s=bestlambda, newx = x[-trainIndex,])
-ridge.MSE <- mean((ridge.pred - y.test)^2)
-
 ```
 
 
-```{r}
+```{r, echo=TRUE}
 library(plotmo)
 
 glmcoef<-coef(ridge.mod,bestlambda )
@@ -276,4 +278,36 @@ plot_glmnet(ridge.mod,label=TRUE,s=bestlambda,col=cols)
 ```
 
 
+To select the best model, we now use 10x10-CV using the lambda that best minimised 
+the error in cross-validation, which is lambda.ridge.
 
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, result='hide'}
+trainContrl <- trainControl (method="repeatedcv", number=10, repeats=10)
+model <- train(MEDV ~ ., data = train, trControl=trainContrl, method='glmnet',tuneGrid=expand.grid(alpha=0,lambda=bestlambda))
+model.ridge.FINAL <- glmnet(x, y, alpha = 0, lambda = bestlambda)
+
+
+
+normalized <- (length(train$MEDV)-1)*var(train$MEDV)
+NMSE.ridge.train.error <- crossprod(predict (model) - train$MEDV) / normalized
+normTest <- (length(test$MEDV)-1)*var(test$MEDV)
+sse_raw <- test$MEDV - model.ridge.FINAL$a0- data.matrix(test[,-dim(train)[2]]) %*% model.ridge.FINAL$beta 
+sse <- crossprod (as.matrix(sse_raw)) 
+
+NMSE.ridge.test.error <- sse/normTest
+```
+
+
+
+
+```{r,  echo = FALSE, message=FALSE, warning=FALSE,results='asis'}
+error.models <- tibble(regression_method = "ridge regression",
+                        train_MSE = as.numeric(NMSE.ridge.train.error),
+                        test_MSE = as.numeric(NMSE.ridge.test.error))
+error.models%>%
+  kable(format = "latex", booktabs = TRUE , digits = 3,
+        caption = "Model Errors Summary") %>% 
+  kable_styling(position = "center",latex_options = c("HOLD_position"),
+                font_size = 9)
+```
