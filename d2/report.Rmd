@@ -205,6 +205,7 @@ result.loocv.gcv <- ridge_loocv_gcv(x, y, lambda.v)
 
 We observe that the results of MSPE seem more stable in the LOOCV and GCV compared to 5-fold and 10-fold CV, as one would expect given the small size of the dataset. Furthermore, the validation set results are also relatively stable, although with a different curve than for the LOOCV/GCV.
 
+
 \newpage
 
 
