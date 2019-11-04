@@ -115,22 +115,26 @@ x <- inspect_num(dataset)
 show_plot(x)
 ```
 
-We can also see that the correlation between the variable $previous$ and $pdays$ is of 0.50 which means that they are moderately correlated. But if we pay attention to number of 0's and 999 and their description, we can see that they are describing the same thing. So we are going to see how these variables are related to the response variable and as we can see below, $pdays$ is not necessary.
+We can also see that the correlation between the variable $previous$ and $pdays$ is of 0.50 which means that they are moderately correlated. But if we pay attention to number of 0's and 999 and their description, we can see that they are describing the same thing. So we are going to see how these variables are related to the response variable and as we can see below, $pdays$ is not necessary. Furthermore, if we take a look at the correlation matrix, we can see that
 
 ```{r, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 df_cor <- select_if(dataset, is.numeric) %>% cor()
 ```
 
-```{r, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
-par(fig=c(0,0.8,0,0.8), new=TRUE)
-ggplot( dataset %>%
+```{r, echo=FALSE, fig.height=6, fig.width=12, message=FALSE, warning=FALSE}
+require(gridExtra)
+p1 <- ggplot( dataset %>%
           group_by(previous, y) %>%
           tally(),
           aes(previous, n, fill = y)
       ) +
       geom_col() +
       theme_bw()
-corrplot(df_cor, method = "number")
+library(gridExtra)
+library(ggcorrplot)
+p2 <- ggcorrplot(df_cor, type = "lower", lab = TRUE)
+grid.arrange(p1, p2, ncol=2,top="Main Title")
+
 ```
 
 Also we can do a general plot to have a first idea of which variables help us to distinguish between the two groups. As we can see below, it looks like $housing$, $contact$ and $potcome$ distinguish between the two groups.
@@ -163,27 +167,23 @@ for (i in df_cat) {
 ```
 
 
-```{r, echo=FALSE, fig.height=6, fig.width=12}
+```{r, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, results='hide'}
 # keep numeric variables
 df_numeric <- select_if(dataset, is.numeric)
-
 pca <- prcomp(df_numeric, scale = T )
-
 # display components
 pca
-
 # variance
 pr_var <- (pca$sdev)^2 
-
 # % of variance explained
 prop_varex <- pr_var/sum(pr_var)
-
 # show percentage of variance of each component
+op<-par(mfrow=c(1,2))
+
 plot(prop_varex,
      xlab = "Principal Component",
      ylab = "Proportion of Variance Explained",
      type = "b" )
-
 
 # Scree Plot
 plot(cumsum(prop_varex),
@@ -191,24 +191,40 @@ plot(cumsum(prop_varex),
      ylab = "Cumulative Proportion of Variance Explained",
      type = "b" )
 
+```
+
+
+```{r, echo=FALSE, fig.height=12, fig.width=12, message=FALSE, warning=FALSE}
 library(devtools)
-ggbiplot(pca,
+p1 <- ggbiplot(pca,
          ellipse = TRUE,
          alpha = 0.2,
          groups = dataset$y) +
   theme_bw()
-
-
-ggbiplot(pca,
+p2 <-ggbiplot(pca,
          choices = c(3, 4),
          ellipse = TRUE,
          alpha = 0.2,
          groups = dataset$y) +
   theme_bw()
+
+grid.arrange(p1, p2, ncol=2,top="Main Title")
 ```
 
+
+```{r read-data, include=FALSE}
+dataset=read.csv2("JYB.csv")
+
+head(dataset)
+summary(dataset)
+
+
+
+```
+
+
 ## With the original variables, fit the complete model without interactions and using the logit link function.
-In this section we are going to perform a logistic regression model with all the variables without interactions. We are going to exclude id because it is a identificator number. The logit link is the default for the binomial family so doesn’t need to be specified. To evaluate the model, we have splitten our dataset into training sample (90%) and test sample (10%). We will calculate accuracy model for each model that we build, it is necessary to compare models. 
+In this section we are going to perform a logistic regression model with all the variables without interactions. We are going to exclude id because it is a identificator number. The logit link is the default for the binomial family so doesn’t need to be specified. To evaluate the model, we have splitten our dataset into training sample (90%) and test sample (10%). We will calculate accuracy model for each model that we build, it is necessary to compare models. Then, we have passed Anova test comparing it to a null model.
 
 ```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, results = 'hide'}
 
@@ -224,6 +240,8 @@ test <- subset(dataset, sample==FALSE)
 
 summary(completeModel<-glm(y ~ . - id - y, train, family = binomial))
 
+# Null Model
+nullModel <- lm(y ~ 1, train)
 
 # Predictions
 completeModel$xlevels[["euribor3m"]] <- union(completeModel$xlevels[["euribor3m"]], levels(test$euribor3m))
@@ -233,9 +251,12 @@ preds[preds < .5] = FALSE
 preds <- as.logical(preds)
 mean(preds == test$y)
 
+# Anova test
+anova(nullModel, completeModel, test = "Chisq")
+
 ```
 
-As we can see, we obtain a 86.65% accuracy in our test set. 
+As we can see, we obtain a 86.65% accuracy in our test set and 197887 AIC.
 
 ```{r, echo=TRUE, message=FALSE, warning=FALSE, fig.height=6, fig.width=12}
 plot(completeModel)
@@ -245,21 +266,12 @@ op<-par(mfrow=c(2,2))
 
 ## Evaluate possible first order interactions (between two factors or between a factor and a covariable) and include them in the model (if there were any).
 
+As we cannot build a model with all interactions for computational reasons, we have tried some interactions and we think that the formula obtained is a right one.
+
 ```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, results = 'hide'}
 
-cor(dataset)
-require(sjPlot)
-library(sjPlot)
-sjt(dataset)
-summary(interactionsModel<-glm(y ~ (. - id - y) + cons.price.idx*cons.conf.idx + job*education, train, family = binomial))
-
-interactionsModel$xlevels[["euribor3m"]] <- union(interactionsModel$xlevels[["euribor3m"]], levels(test$euribor3m))
-preds <- predict(interactionsModel, test, type = "response")
-preds[preds > .5] = TRUE
-preds[preds < .5] = FALSE
-preds <- as.logical(preds)
-
-mean(preds == test$y)
+summary(interactionsModel<-glm(y ~ . + education:previous + education:poutcome + default:euribor3m + marital:day_of_week + month:emp.var.rate + contact:month + contact:cons.price.idx +
+                     contact:euribor3m + month:euribor3m + month:cons.price.idx + day_of_week:month , family = binomial(link = "logit"), data = dataset))
 
 
 # BIC criterion
@@ -283,6 +295,8 @@ AICModel <- stepAIC(completeModel,
                       k=log(nrow(dataset)))
 
 ``` 
+With InteractionsModel we obtain a better AIC (16016) than completeModel (197887)
+
 ## Perform an automatic variables selection basen on the AIC & BIC. Make a comparison of the models and argue which one is chosen.
 
 In order to create a model with the most significant variables, we decided to choose both criterions: the BIC and AIC criterion. Then, we will make a comparision of the models to select which one is better.
@@ -297,7 +311,7 @@ time
 In this case, due the amount of variables we have on our dataset, we rather follow forward heuristic strategy. Just because if we try to follow backward model it lasts very longer.
 
 ```{r, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, results = 'hide'}
-nullModel <- lm(y ~ 1, train)
+
 
 # BIC criterion
 BICModel <- step(nullModel, scope = list(lower=nullModel, upper=completeModel), direction="both", criterion = "BIC", k=log(nrow(train)))
@@ -308,15 +322,22 @@ preds[preds < .5] = FALSE
 preds <- as.logical(preds)
 mean(preds == test$y)
 
-# AIC BIC Model = -56410.7
-# Accuracy: 89,07%
+
+
+# BIC Model = -56410.7
+# Accuracy: 89,86%
 # formula = y ~ cons.conf.idx + poutcome + contact + pdays
+
 require(MASS)
 library(MASS)
-AICModel <- stepAIC(nullModel, scope = list(lower=nullModel, upper=completeModel),
+AICModel <- step(nullModel, scope = list(lower=nullModel, upper=completeModel),
         direction = "both",
-        trace = 1, 
-        k = log(nrow(train)))
+        trace = 0, 
+        k = 2)
+summary(AICModel)
+
+AICModel$xlevels[["euribor3m"]] <- union(AICModel$xlevels[["euribor3m"]], levels(test$euribor3m))
+
 preds <- predict(AICModel, test, type = "response")
 preds[preds > .5] = TRUE
 preds[preds < .5] = FALSE
@@ -326,17 +347,29 @@ mean(preds == test$y)
 
 ``` 
 
-As we can see, both criterias give us the same formula (y ~ cons.conf.idx + poutcome + contact + pdays) and accordingly the same accuracy. Both have an R-squared of around 0.206 so their performance is similar. 
+As we can see, BIC Criterion gives us the formula (y ~ cons.conf.idx + poutcome + contact + pdays) and an accuracy about 89,87%, and R-squared around 0.206. AIC Model gets 88,51% of accuracy and a formula more complex than BIC Criterion (y ~ euribor3m + poutcome + cons.conf.idx + contact + pdays + day_of_week + campaign + previous + default + age) and a R-squared around 0.2331.
+
+We are going to select BIC Criterion because it perfoms better than AIC.
 
 ## Validate the model by checking the assumptions
-Once we have our model selected, we are going to validate it with anova comparing the null model with our
-final model.
+Once we have our model selected, we are going to validate it with anova comparing the null model with our final model. Then we can see the plots obtained.
 
 
 ```{r, echo=TRUE, fig.height=2, fig.width=12, message=FALSE, warning=FALSE, fig.align='center'}
-anova(nullModel, AICModel)
+anova(nullModel, BICModel)
+
+op<-par(mfrow=c(2,2))
+plot(BICModel)
 ```
-In this case we can see that our model, passes the test since our p-value is lower than 0.05.
+In this case we can see that our model, passes the test since our p-value is lower than 0.05. Normal Q-Q shows us that the distribution is not symetry. From the Scale-Location plot, it seems that the assumption of homoskedasticity is not validated.
+
 
 ## Interpret the final model
 
+Even our final model has an adjusted r-squared of 0.206 which is a low value, we can assume that has a good AIC and it performs good with an accuracy around 89,86%, one of our purposes in this project.
+
+As we have previously said, we would rather a simple model with less predictor variables than a complex model with many of them. It has been rough working with this dataset due its size (28645 observations). Probably it would be much wiser to perform an imputation with unknown instances. Regardless, we do not have this many variables that can be relevant as we have seen in the exploratory analysis.
+
+We can say that our final model explains that if we increase the consumer price index for a client, it means a high probability of subscribing to the deposit. 
+
+On the other hand, we can interpret that is better to contact clients via by cellular than by phone. 
