@@ -1,5 +1,6 @@
 ---
 title: 'Advanced Statistical Modelling: Logistic Regression'
+geometry: margin=1.75cm
 author: "Ricard Meyerhofer & Joel Cantero"
 date: "4/11/2019"
 output:
@@ -14,7 +15,7 @@ output:
 As explained in the problem statement, our dataset is composed by 28645 calls from JYB. JYB has the purpose of reducing the telemarketing costs by decreasing the number of calls to clients not likely to buy the product. This is the list of the available variables:
 
 Variable  | Description                           | Attribute type
-:--------------:|:-----------------------------------------------------------------------------------:|:--------------:
+:--------------:|:--------------------------------------------------------------------------------------:|:------:
 id | Customer ID |  Client |
 age | age in years |  Client|
 job | (admin., blue-collar, entrepreneur, housemaid, management, retired, self-employed, services, student, technician, unemployed, unknown) |  Client |
@@ -26,10 +27,10 @@ loan | does he/she has a personal loan? (No, yes, unknown) | Client |
 contact | phone type (cellular, telephone) | Call |
 month | month of the call | Call |
 day_of_week | day of the call (mon, tue, wed, thu, fri) | Call |
-campaign | does he/she has a personal loan? (No, yes, unknown) | Campaign |
-pdays | does he/she has a personal loan? (No, yes, unknown) | Campaign |
-previous | does he/she has a personal loan? (No, yes, unknown) | Campaign |
-poutcome | does he/she has a personal loan? (No, yes, unknown) | Campaign |
+campaign | Number of contacts made this campaign for this client (including the current one) | Campaign |
+pdays | number of days that have passed since the customer was contacted for the last time for a previous campaign (999 means that it was not previously contacted) | Campaign |
+previous | number of calls made to this client before this campaign | Campaign |
+poutcome | previous campaign result (failure, nonexistent, success) | Campaign |
 emp.var.rate | employment variation rate (quarterly) | Indicators  |
 cons.price.idx | Consumer Price Index (monthly) | Indicators |
 cons.conf.idx | Consumer confidence index (monthly) | Indicators |
@@ -54,8 +55,10 @@ library(DALEX) # explain models
 library(DescTools) # plots
 library(doParallel) # parellel processing
 library(dplyr) # syntax
-#library(ggbiplot) # PCA plots
+library(ggbiplot) # PCA plots
 library(ggplot2) # plots
+library(tidyverse)
+library(devtools)
 library(readr)
 library(inspectdf) # data overview
 library(sjPlot) # contingency tables
@@ -63,53 +66,63 @@ library(tabplot) # data overview
 ``` 
 
 ```{r, fig.height=3, fig.width=12, message=FALSE, warning=FALSE, include=FALSE}
-dataset <- read_csv(file="JYB.csv", header = T, sep = ";")
-col_types= cols(
-  id = col_double(),
-  age = col_double(),
-  job = col_character(),
-  marital = col_character(),
-  education = col_character(),
-  default = col_character(),
-  housing = col_character(),
-  loan = col_character(),
-  contact = col_character(),
-  month = col_character(),
-  day_of_week = col_double(),
-  campaign = col_double(),
-  pdays = col_double(),
-  previous = col_double(),
-  poutcome = col_character(),
-  emp.var.rate = col_double(),
-  cons.price.idx = col_double(),
-  cons.conf.idx = col_double(),
-  euribor3m =col_double(),
-  nr.employed = col_double(), 
-  y = col_character()
+dataset <- read.csv(file="JYB.csv", header = T, sep = ";", colClasses = c(
+  "id" = "double",
+  "age" = "double",
+  "job" = "character",
+  "marital" = "character",
+  "education" = "character",
+  "default" = "character",
+  "housing" = "character",
+  "loan" = "character",
+  "contact" = "character",
+  "month" = "character",
+  "day_of_week" = "character",
+  "campaign" = "double",
+  "pdays" = "double",
+  "previous" = "double",
+  "poutcome" = "character",
+  "emp.var.rate" = "double",
+  "cons.price.idx" = "double",
+  "cons.conf.idx" = "double",
+  "euribor3m" ="double",
+  "nr.employed" = "double", 
+  "y" = "character"
 ))
 aggr(dataset, numbers=TRUE, sortVars=TRUE, labels=names(dataset), 
                   ylab=c("Histogram of missing data","Pattern"))[1]
 ``` 
 
-As we can see we have that all our variables are integers or factors. We have seen that there our dataset is complete which means that it has no missing values. However, this does not imply that there are no outliers.
-
-
-```{r, echo=FALSE, fig.height=3, fig.width=12, message=FALSE, warning=FALSE}
-inspect_cat(dataset, show_plot = TRUE)
-```
-```{r, echo=FALSE, fig.height=6, fig.width=12, message=FALSE, warning=FALSE}
-inspect_num(dataset)
+As we can see in the plot, we have 11 factors and 10 numeric values. Furthermore, we have seen that there our dataset is complete which means that it has no missing values. However, this does not imply that there are no outliers.
+```{r, echo=FALSE, fig.height=4.0, fig.width=12}
+# barplot of column types
+x <- inspect_types(dataset)
+show_plot(x)
 ```
 
-```{r, echo=FALSE, fig.height=6, fig.width=12, message=FALSE, warning=FALSE}
-prop.table(table(dataset$y))
 
-cor(dataset$previous, dataset$pdays)
+Exploration of the categorical variables where we can see a map with all their possible values and their representation. We can see that there is a clear unbalance in some variables such as $poutcome$, $load$, $contact$ or the response variable $y$.  So we might need to resample our dataset. 
+
+```{r, echo=FALSE, fig.height=6, fig.width=12}
+x <- inspect_cat(dataset)
+show_plot(x)
 ```
 
-Dataset is UNbalanced. Resampling is required
+If we now explore of the numerical variables, we see that most of variables are not following a normal. This might be because they are ratios and also are taken most of them in a monthly basis. 
 
-```{r, echo=FALSE, fig.height=6, fig.width=12, message=FALSE, warning=FALSE}
+```{r, echo=FALSE, fig.height=6, fig.width=12, message=FALSE, warning=FALSE,results='hide'}
+x <- inspect_num(dataset)
+show_plot(x)
+```
+
+We can also see that the correlation between the variable $previous$ and $pdays$ is of 0.50 which means that they are moderately correlated. But if we pay attention to number of 0's and 999 and their description, we can see that they are describing the same thing. So we are going to see how these variables are related to the response variable and as we can see below, $pdays$ is not necessary.
+
+```{r, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
+df_cor <- select_if(dataset, is.numeric) %>% cor()
+```
+
+```{r, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
+par(fig=c(0,0.8,0,0.8), new=TRUE)
 ggplot( dataset %>%
           group_by(previous, y) %>%
           tally(),
@@ -117,34 +130,30 @@ ggplot( dataset %>%
       ) +
       geom_col() +
       theme_bw()
+corrplot(df_cor, method = "number")
 ```
+
+Also we can do a general plot to have a first idea of which variables help us to distinguish between the two groups. As we can see below, it looks like $housing$, $contact$ and $potcome$ distinguish between the two groups.
+
 ```{r, echo=FALSE, fig.height=6, fig.width=12, message=FALSE, warning=FALSE}
 tableplot(dataset, sortCol = y)
 ```
-```{r, echo=FALSE, fig.height=6, fig.width=12, message=FALSE, warning=FALSE}
-
-inspect_cor(dataset, show_plot = TRUE)
-
-df_cor <- select_if(dataset, is.numeric) %>% cor()
-corrplot(df_cor, method = "number")
-
-```
 
 
-```{r}
+```{r, echo=FALSE, fig.height=6, fig.width=12}
 # select categorical variables
 df_cat <- select_if(dataset, is.character) %>% names()
-# remove the response
 response_ind <- match('y', df_cat)
 df_cat <- df_cat[-response_ind]
 
+par(mfrow=c(5,2))
+
 # plot categorical variables
 for (i in df_cat) {
-  print(i)
-  
+  par(mfrow=c(5,2))
   print(
-    sjp.xtab(df$deposit,
-         df[[i]],
+    sjp.xtab(dataset$y,
+         dataset[[i]],
          margin = "row",
          bar.pos = "stack",
          axis.titles = "deposit",
@@ -152,6 +161,52 @@ for (i in df_cat) {
   )
 }
 ```
+
+
+```{r, echo=FALSE, fig.height=6, fig.width=12}
+# keep numeric variables
+df_numeric <- select_if(dataset, is.numeric)
+
+pca <- prcomp(df_numeric, scale = T )
+
+# display components
+pca
+
+# variance
+pr_var <- (pca$sdev)^2 
+
+# % of variance explained
+prop_varex <- pr_var/sum(pr_var)
+
+# show percentage of variance of each component
+plot(prop_varex,
+     xlab = "Principal Component",
+     ylab = "Proportion of Variance Explained",
+     type = "b" )
+
+
+# Scree Plot
+plot(cumsum(prop_varex),
+     xlab = "Principal Component",
+     ylab = "Cumulative Proportion of Variance Explained",
+     type = "b" )
+
+library(devtools)
+ggbiplot(pca,
+         ellipse = TRUE,
+         alpha = 0.2,
+         groups = dataset$y) +
+  theme_bw()
+
+
+ggbiplot(pca,
+         choices = c(3, 4),
+         ellipse = TRUE,
+         alpha = 0.2,
+         groups = dataset$y) +
+  theme_bw()
+```
+
 ## With the original variables, fit the complete model without interactions and using the logit link function.
 In this section we are going to perform a logistic regression model with all the variables without interactions. We are going to exclude id because it is a identificator number. The logit link is the default for the binomial family so doesn’t need to be specified. To evaluate the model, we have splitten our dataset into training sample (90%) and test sample (10%). We will calculate accuracy model for each model that we build, it is necessary to compare models. 
 
@@ -284,3 +339,4 @@ anova(nullModel, AICModel)
 In this case we can see that our model, passes the test since our p-value is lower than 0.05.
 
 ## Interpret the final model
+
