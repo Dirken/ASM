@@ -115,7 +115,9 @@ x <- inspect_num(dataset)
 show_plot(x)
 ```
 
-We can also see that the correlation between the variable $previous$ and $pdays$ is of 0.50 which means that they are moderately correlated. But if we pay attention to number of 0's and 999 and their description, we can see that they are describing the same thing. So we are going to see how these variables are related to the response variable and as we can see below, $pdays$ is not necessary. Furthermore, if we take a look at the correlation matrix, we can see that
+We can also see that the correlation between the variable $previous$ and $pdays$ is of 0.50 which means that they are moderately correlated. But if we pay attention to number of 0's and 999 and their description, we can see that they are describing the same thing. So we are going to see how these variables are related to the response variable and as we can see below, $pdays$ is not necessary. Furthermore, if we take a look at the correlation matrix, we can see that there is a very high correlation between $euribor3m$ and $emp.var.rate$, $emp.var.rate$ with $nr.employed$ and $nr.employed$ with $euribor3m$.
+
+This variables could be dropped but since in the next statement says that we should use the original variables, we are not dropping them even that at first glance, looks more than obvious that this variables will not be relevant with the AIC tests.
 
 ```{r, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 df_cor <- select_if(dataset, is.numeric) %>% cor()
@@ -143,6 +145,7 @@ Also we can do a general plot to have a first idea of which variables help us to
 tableplot(dataset, sortCol = y)
 ```
 
+Finally, we can see all the categorical variables by the response variable. We can see that most of them behave in a very similar manner even that there are some differences in the $default$, $contact$ and $poutcome$ distributions.
 
 ```{r, echo=FALSE, fig.height=6, fig.width=12}
 # select categorical variables
@@ -160,12 +163,13 @@ for (i in df_cat) {
          dataset[[i]],
          margin = "row",
          bar.pos = "stack",
-         axis.titles = "deposit",
+         axis.titles = "y",
          legend.title = i)
   )
 }
 ```
 
+Finally we have performed the screeplot to see the significant variables and a PCA to see which variables are related with which others. But as said previously, this is just an indicative of we should see when doing the AIC and BIC steps which later we will see if corresponds to our final result.
 
 ```{r, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE, results='hide'}
 # keep numeric variables
