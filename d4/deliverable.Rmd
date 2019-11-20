@@ -6,6 +6,7 @@ output:
   pdf_document: default
   html_document:
     df_print: paged
+geometry: left=1.9cm,right=1.9cm,top=1.25cm,bottom=1.52cm
 ---
 
 ```{r setup, include=FALSE}
@@ -21,8 +22,8 @@ source("functions.R")
 
 In this assignment, we are going to use the Boston House-price dataset. It concerns housing values in 506 suburbs of Boston corresponding to year 1978. The following is a list where we can see all the variables of the dataset:
 
-Variable name         | Description                          | Values
-:--------------:|:-------------------------------------:|:-------------------------------------:
+Variable name   | Description                          | Values
+:------------------:|:-----------------------------------------------------------------------------------------:|:--------------------------:
 CRIM| per capita crime rate by town | Integer |
 ZN| proportion of residential land zoned for lots over 25,000 sq.ft. |	Integer |
 INDUS| proportion of non-retail business acres per town	| Integer |
@@ -48,23 +49,19 @@ summary(dataset)
 set.seed(777)
 ```
 
-Our first step is to load this dataset and check for missing values thanks to mice package.
-
-```{r}
+```{r, echo=FALSE, fig.height=3, fig.width=22, message=FALSE, warning=FALSE, results='hide'}
 library(mice)
-md.pattern(dataset)
+md.pattern(dataset)[0]
 ```
 
-As we can see, there is not any missing value for any observation so we can continue and it is not necessary to deal with imputation.
+As we can see with the mice package, there is any missing value so we can continue and it is not necessary to deal with imputation.
 
 
 ## Lasso estimation
 
-As mentioned in the statement, we are going to model this dataset by using the glmnet Lasso estimation. This regression model, will have $CMEDV$ as response variable and the remaining 13 aforementioned variables as explanatory variables.
+As mentioned in the statement, we are going to model this dataset by using the glmnet Lasso estimation. This regression model, will have $CMEDV$ as response variable and the remaining 13 aforementioned variables as explanatory variables. In order to do so, first we select these 13 variables as explanatory variables and we convert CHAS factor variable to numeric one, because we have to scale it before applying Lasso Estimation. Then, we assign CMEDV variable (corrected version of MEDV) as our response variable Y.
 
-In order to do so, first we select these 13 variables as explanatory variables and we convert CHAS factor variable to numeric one, because we have to scale it before applying Lasso Estimation. Then, we assign CMEDV variable (corrected version of MEDV) as our response variable Y.
-
-```{r preparing-data, echo=TRUE}
+```{r preparing-data, include=FALSE}
 # Selecting 13 explanatory variables from Boston dataset.
 X <- dataset[,8:20]
 # Converting CHAS factor variable as numeric.
@@ -76,38 +73,39 @@ p <- dim(X)[2]
 ```
 
 
-```{r lasso, echo=TRUE}
-#Lambdas
+```{r lasso, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 lambda.max <- 1e5
-n.lambdas <- 74
+n.lambdas <- 74 #tuned
 lambda.values <- exp(seq(0,log(lambda.max+1),length=n.lambdas))-1
 d2 <- eigen(t(X)%*%X,symmetric = TRUE, only.values = TRUE)$values
 df.v <- numeric(n.lambdas)
-
 for (l in 1:n.lambdas){
   lambda <- lambda.values[l]
   df.v[l] <- sum(d2/(d2+lambda)) 
 }
-
 # Lasso estimation in glmnet
 lasso <- glmnet(X, Y, lambda=lambda.values)
+```
 
+```{r lassoplot, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 # Plotting
 minLambda = min(lasso$lambda + lasso$dev)
 par(mfrow=c(1,2))
 plot(lasso, xvar="lambda")
 plot(log(lasso$lambda), lasso$dev.ratio, type='b')
 abline(v=minLambda,col=2,lty=2)
-
 ```
 
 
 In the first plot, we can see each different coefficient for each color. We can say that we have a bigger penalization if we use more variables. If we increase lambda, less variables are used. 
 
-## Use glmnet to fit the previous model using ridge regression. Compare the 10-fold cross validation results from function cv.glmnet with those you obtained in the previous practice with your own functions.
+## Compare the 10-fold cv results with the ones you implemented in your previously
 
-```{r ridge-regression, echo=TRUE}
+```{r ridge-regression, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 ridge_regression_model <- glmnet(X, Y, alpha=0, standardize=FALSE)
+```
+
+```{r ridge-regressionplot, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 par(mfrow=c(1,2))
 plot(ridge_regression_model)
 plot(log(ridge_regression_model$lambda), ridge_regression_model$dev.ratio)
@@ -117,8 +115,9 @@ First of all, we are going to select the same lambdas that we used in the previo
 
 We need to set standardize paramater to false because our data is already centered and scaled.
 
-```{r ridge-regression2, echo=TRUE}
-glmnet.cv <- cv.glmnet(X, Y, nfolds=10, lambda =  lambda.values, standardize=FALSE, intercept=FALSE, alpha=0)
+```{r ridge-regression2, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
+glmnet.cv <- cv.glmnet(X, Y, nfolds=10, lambda = lambda.values, 
+                       standardize=FALSE, intercept=FALSE, alpha=0)
 plot(glmnet.cv)
 abline(v=log(glmnet.cv$lambda.min),col=2,lty=2)
 abline(v=log(glmnet.cv$lambda.1se),col=2,lty=2)
@@ -126,31 +125,35 @@ cvm <- rev(glmnet.cv$cvm)
 kFold <-  MSPEkfold(X, Y, 10, n.lambdas, lambda.values, dim(X)[1])
 points(log(lambda.values), kFold, col=5)
 legend("bottomright", c("GLMnet Error", "kFold error"), col=c(2,5), lty=c(2,2), lwd=c(1,1))
-
 min.lambda <- data.frame("kFold" = lambda.values[which.min(kFold)], "GLMnet" = glmnet.cv$lambda.min)
-min.df <- data.frame("kFold" = df.v[which.min(kFold)],"GLMnet" =df.v[which(lambda.values == glmnet.cv$lambda.min)])
+min.df <- data.frame("kFold" = df.v[which.min(kFold)],
+                     "GLMnet" = df.v[which(lambda.values == glmnet.cv$lambda.min)])
 result <- rbind(min.df, min.lambda)
 row.names(result) <- c("df", "lambda")
+```
 
-kable(result)
+```{r ridge-regression22, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
+kable(result, format="latex", booktabs=TRUE)  %>%
+  kable_styling(position = "center")
 ```
 
 The previous plot shows us that both methods follows the same curve but kFold method starts the curve later, it starts to increase MSE until lambda is around 6-8.
 
-```{r ridge-regression3, echo=TRUE}
+```{r ridge-regression3, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 lambda.glm <- glmnet.cv$lambda 
 degrees_of_freedom <- numeric(n.lambdas) 
 for (l in 1:n.lambdas){ 
     lambda <- lambda.glm[l]
     degrees_of_freedom[l] <- sum(d2/(d2+lambda))
 }
-plot(degrees_of_freedom, cvm, col=2, pch=19,cex=.80, ylab="MSE", xlab="Degrees of freedom", main="Comparison")
+```
+
+
+```{r ridge-regression4, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
+plot(degrees_of_freedom, cvm, col=2, pch=19,cex=.80, ylab="MSE",
+     xlab="Degrees of freedom", main="Comparison")
 points(degrees_of_freedom, kFold, col=4, pch=19, cex=.75)
-legend("bottomright",
-       c("glmnet","kfold"),
-       pch=c(19, 19),
-       col=c(2, 4)
-       )
+legend("bottomright", c("glmnet","kfold"), pch=c(19, 19), col=c(2, 4))
 ```
 
 In the previous plot we can see in red points the values of the degrees of freedom against the MSE from GLMnet, and the blue points representing the kFold method. As we can see, with 0 and 12 degrees of freedom the MSE is equal for both methods, as we expect, but each one gets a different curves. 
