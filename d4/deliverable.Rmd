@@ -14,6 +14,7 @@ library(knitr)
 library("kableExtra")
 library(glmnet)
 library(MASS)
+source("functions.R")
 ```
 
 ## Introduction
@@ -45,12 +46,11 @@ dataset <- boston.c
 head(dataset)
 summary(dataset)
 set.seed(777)
-source("all_functions.R")
 ```
 
 Our first step is to load this dataset and check for missing values thanks to mice package.
 
-```{r, eval=FALSE, message=FALSE, warning=FALSE, include=FALSE}
+```{r}
 library(mice)
 md.pattern(dataset)
 ```
@@ -72,8 +72,8 @@ X$CHAS <- as.numeric(X$CHAS)
 # Scaling X and centering Y
 X <- scale( as.matrix(X), center=T, scale=T)
 Y <- scale( dataset$CMEDV, center=T, scale=F)
+p <- dim(X)[2]
 ```
-
 
 
 ```{r lasso, echo=TRUE}
@@ -84,9 +84,8 @@ lambda.values <- exp(seq(0,log(lambda.max+1),length=n.lambdas))-1
 d2 <- eigen(t(X)%*%X,symmetric = TRUE, only.values = TRUE)$values
 df.v <- numeric(n.lambdas)
 
-lambda.v <- seq(lambda.max,0,length=n.lambdas)
 for (l in 1:n.lambdas){
-  lambda <- lambda.v[l]
+  lambda <- lambda.values[l]
   df.v[l] <- sum(d2/(d2+lambda)) 
 }
 
@@ -108,101 +107,52 @@ In the first plot, we can see each different coefficient for each color. We can 
 ## Use glmnet to fit the previous model using ridge regression. Compare the 10-fold cross validation results from function cv.glmnet with those you obtained in the previous practice with your own functions.
 
 ```{r ridge-regression, echo=TRUE}
-ridge_regression_model <- glmnet(X, Y, alpha=0)
+ridge_regression_model <- glmnet(X, Y, alpha=0, standardize=FALSE)
 par(mfrow=c(1,2))
-summary(ridge_regression_model)
-plot(ridge_regression_model,  xvar="lambda")
-plot(log(ridge_regression_model$lambda), ridge_regression_model$dev.ratio, type='b')
+plot(ridge_regression_model)
+plot(log(ridge_regression_model$lambda), ridge_regression_model$dev.ratio)
 ```
 
-As expected we can see how the error goes down the higher the value of the lamdas.
+First of all, we are going to select the same lambdas that we used in the previous method just to compare both of them. As we can see in the plots, the error decreases when the values of the lambdas increases. 
 
-In order to compare the two models we will use the same lambdas that we have generated and feed them to both methods, thus ensuring that the results are not tricked by using differnet values of lambdas.
-
-We will also set the __standardize__ flag to false since our data is already standardized as seen in the first block of code. Opting to use the original that without centering and standarizing it could have also been an option, too.
-
-We have tried sending to glmnet the data without centering it ourselves and letting the function standardize it itself, but the results have been the same.
-
-
-```{r, echo=FALSE, include=FALSE}
-d22 <- eigen(t(X)%*%X ,symmetric = TRUE, only.values = TRUE)$values
-m3.rr <- cv.glmnet(X, Y, nfolds=10, lambda =  lambda.v, standardize=TRUE, intercept=FALSE, alpha=0)
-```
-
+We need to set standardize paramater to false because our data is already centered and scaled.
 
 ```{r ridge-regression2, echo=TRUE}
-m3.rr <- cv.glmnet(X, Y, nfolds=10, lambda = lambda.v, standardize=FALSE, intercept=FALSE, alpha=0)
-plot(m3.rr, main="Lambdas")
-abline(v=log(m3.rr$lambda.min),col=2,lty=2)
-abline(v=log(m3.rr$lambda.1se),col=2,lty=2)
+glmnet.cv <- cv.glmnet(X, Y, nfolds=10, lambda =  lambda.values, standardize=FALSE, intercept=FALSE, alpha=0)
+plot(glmnet.cv)
+abline(v=log(glmnet.cv$lambda.min),col=2,lty=2)
+abline(v=log(glmnet.cv$lambda.1se),col=2,lty=2)
+cvm <- rev(glmnet.cv$cvm)
+kFold <-  MSPEkfold(X, Y, 10, n.lambdas, lambda.values, dim(X)[1])
+points(log(lambda.values), kFold, col=5)
+legend("bottomright", c("GLMnet Error", "kFold error"), col=c(2,5), lty=c(2,2), lwd=c(1,1))
 
-cvm <- rev(m3.rr$cvm)
-p <- dim(X)[2]
-m4.rr <-  MSPEkfold(X, Y, 10, n.lambdas, lambda.v, dim(X)[1])
-points(log(lambda.v), m4.rr, col=5)
-legend("bottomright", c("glmnet error", "k.fold error"), col=c(2,5), lty=c(2,2), lwd=c(1,1)) # FIX
-
-min.lambda <- data.frame("K.fold" = lambda.v[which.min(m4.rr)], "glmnet" = m3.rr$lambda.min)
-min.df <- data.frame("K.fold" = df.v[which.min(m4.rr)],"glmnet" =df.v[which(lambda.v == m3.rr$lambda.min)])
+min.lambda <- data.frame("kFold" = lambda.values[which.min(kFold)], "GLMnet" = glmnet.cv$lambda.min)
+min.df <- data.frame("kFold" = df.v[which.min(kFold)],"GLMnet" =df.v[which(lambda.values == glmnet.cv$lambda.min)])
 result <- rbind(min.df, min.lambda)
 row.names(result) <- c("df", "lambda")
 
 kable(result)
 ```
 
-Interestingly enough, we see how the values differ from our method to the one implemented by __glmnet__. Taking a look at the table, the most noticeable thing is that the optimal lambda is increased by more than 4 units, yet the value of the degrees of freedom remains almost the same. 
-
-We are not sure if our model is wrongly implemented or it is simply that the glmnet method is doing things differently from what we did in our implementation. 
-
-Yet if we take a look at the plot which compares the Mean Square error to with the values of the lambdas we can see how both models seem to follow the same shape.
-
-However, our model starts the curve later on (around 4 units), meaning that the Mean Squared Error does not start increasing until reaching higher values of $\lambda$.
+The previous plot shows us that both methods follows the same curve but kFold method starts the curve later, it starts to increase MSE until lambda is around 6-8.
 
 ```{r ridge-regression3, echo=TRUE}
-lambda.glm <- m3.rr$lambda
-df.v.g <- numeric(n.lambdas)
-for (l in 1:n.lambdas){
-  lambda <- lambda.glm[l]
-  df.v.g[l] <- sum(d2/(d2+lambda)) 
-}
-
-plot(df.v, cvm, col=1,pch=19,cex=.75, ylab="MSE", xlab="Degrees of freedom", main="Comparison of MSE models")
-points(df.v, m4.rr,col=8,pch=19,cex=.75)
-
-legend("topright",
-       c("glmnet","kfold"),
-       pch=c(19, 19),
-       col=c(8, 1)
-       )
-
-
-## Pedro correction. Use df.v.g
-lambda.glm <- m3.rr$lambda 
-df.v.g <- numeric(n.lambdas) 
+lambda.glm <- glmnet.cv$lambda 
+degrees_of_freedom <- numeric(n.lambdas) 
 for (l in 1:n.lambdas){ 
     lambda <- lambda.glm[l]
-    df.v.g[l] <- sum(d2/(d2+lambda))
+    degrees_of_freedom[l] <- sum(d2/(d2+lambda))
 }
-plot(df.v.g, cvm, col=1,pch=19,cex=.75, ylab="MSE", xlab="Degrees of freedom", main="Comparison of MSE models")
-points(df.v.g, m4.rr,col=8,pch=19,cex=.75)
+plot(degrees_of_freedom, cvm, col=2, pch=19,cex=.80, ylab="MSE", xlab="Degrees of freedom", main="Comparison")
+points(degrees_of_freedom, kFold, col=4, pch=19, cex=.75)
+legend("bottomright",
+       c("glmnet","kfold"),
+       pch=c(19, 19),
+       col=c(2, 4)
+       )
 ```
 
-In this plot we are comparing the values of the degrees of freedom against the mean square error.
+In the previous plot we can see in red points the values of the degrees of freedom against the MSE from GLMnet, and the blue points representing the kFold method. As we can see, with 0 and 12 degrees of freedom the MSE is equal for both methods, as we expect, but each one gets a different curves. 
 
-We can clearly see how both methods start and finish in the same values, which is expected.
-
-Yet there is a big difference in the values between: our method lowers the error slower as more degrees of freedom are reached (so less variables are used).
-
-Meanwhile the glmnet method follows more of a curve on the opposite sides towards lower error. It seems to stagnate when reaching higher degrees of freedom.
-
-Assuming our method is correct, it seems that our implementation of k-fold is worse, since unless we reach 13 degrees of freedom, the MSE does not lower below 40.
-
-The glmnet function proves to be getting less error around 4/6 degrees of freedom, so this would be our preferred method.
-
-## Conclusion
-
-Our conclussion is that maybe our method has not been properly implemented, since we are having the same issues when passing the data untouched to glmnet and telling it to standardize it itself.
-
-This tells us that the root of the discrepancies of the results emerge probably from a bad implementation from our side of the k-Fold function. However, we have rechecked it and we cannot pinpoint our fault in the implementation.
-
-Thus, we will remain waiting for the correction of the first lab to correct this one.
+kFold method gets the error lower as less variables are used (more d.f.) The glmnet function proves to be getting more error around 4-8 degrees of freedom, so for this reason, we discard it. Otherwise, kFold method proves to be getting less error with the same degrees of freedom, so this would be our final method.
