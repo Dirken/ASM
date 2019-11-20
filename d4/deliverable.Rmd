@@ -45,6 +45,7 @@ dataset <- boston.c
 head(dataset)
 summary(dataset)
 set.seed(777)
+source("all_functions.R")
 ```
 
 Our first step is to load this dataset and check for missing values thanks to mice package.
@@ -83,6 +84,7 @@ lambda.values <- exp(seq(0,log(lambda.max+1),length=n.lambdas))-1
 d2 <- eigen(t(X)%*%X,symmetric = TRUE, only.values = TRUE)$values
 df.v <- numeric(n.lambdas)
 
+lambda.v <- seq(lambda.max,0,length=n.lambdas)
 for (l in 1:n.lambdas){
   lambda <- lambda.v[l]
   df.v[l] <- sum(d2/(d2+lambda)) 
@@ -106,7 +108,6 @@ In the first plot, we can see each different coefficient for each color. We can 
 ## Use glmnet to fit the previous model using ridge regression. Compare the 10-fold cross validation results from function cv.glmnet with those you obtained in the previous practice with your own functions.
 
 ```{r ridge-regression, echo=TRUE}
-
 ridge_regression_model <- glmnet(X, Y, alpha=0)
 par(mfrow=c(1,2))
 summary(ridge_regression_model)
@@ -124,22 +125,19 @@ We have tried sending to glmnet the data without centering it ourselves and lett
 
 
 ```{r, echo=FALSE, include=FALSE}
-
 d22 <- eigen(t(X)%*%X ,symmetric = TRUE, only.values = TRUE)$values
-
-
 m3.rr <- cv.glmnet(X, Y, nfolds=10, lambda =  lambda.v, standardize=TRUE, intercept=FALSE, alpha=0)
-
 ```
 
 
 ```{r ridge-regression2, echo=TRUE}
-m3.rr <- cv.glmnet(X, Y, nfolds=10, lambda =  lambda.v, standardize=FALSE, intercept=FALSE, alpha=0)
+m3.rr <- cv.glmnet(X, Y, nfolds=10, lambda = lambda.v, standardize=FALSE, intercept=FALSE, alpha=0)
 plot(m3.rr, main="Lambdas")
 abline(v=log(m3.rr$lambda.min),col=2,lty=2)
 abline(v=log(m3.rr$lambda.1se),col=2,lty=2)
-cvm <- rev(m3.rr$cvm)
 
+cvm <- rev(m3.rr$cvm)
+p <- dim(X)[2]
 m4.rr <-  MSPEkfold(X, Y, 10, n.lambdas, lambda.v, dim(X)[1])
 points(log(lambda.v), m4.rr, col=5)
 legend("bottomright", c("glmnet error", "k.fold error"), col=c(2,5), lty=c(2,2), lwd=c(1,1)) # FIX
