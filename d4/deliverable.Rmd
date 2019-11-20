@@ -44,7 +44,6 @@ load("boston.Rdata")
 dataset <- boston.c
 head(dataset)
 summary(dataset)
-
 set.seed(777)
 ```
 
@@ -57,26 +56,26 @@ md.pattern(dataset)
 
 As we can see, there is not any missing value for any observation so we can continue and it is not necessary to deal with imputation.
 
-## For the Boston House-price corrected dataset use Lasso estimation (in glmnet) to fit the regression model where the response is CMEDV (the corrected version of MEDV) and the explanatory variables are the remaining 13 variables in the previous list. Try to provide an interpretation to the estimated model.
 
-First of all, we select these 13 variables as explanatory variables and we convert CHAS factor variable to numeric one, because we have to scale it before applying Lasso Estimation. Then, we assign CMEDV variable (corrected version of MEDV) as our response variable Y.
+## Lasso estimation
+
+As mentioned in the statement, we are going to model this dataset by using the glmnet Lasso estimation. This regression model, will have $CMEDV$ as response variable and the remaining 13 aforementioned variables as explanatory variables.
+
+In order to do so, first we select these 13 variables as explanatory variables and we convert CHAS factor variable to numeric one, because we have to scale it before applying Lasso Estimation. Then, we assign CMEDV variable (corrected version of MEDV) as our response variable Y.
 
 ```{r preparing-data, echo=TRUE}
 # Selecting 13 explanatory variables from Boston dataset.
 X <- dataset[,8:20]
-
 # Converting CHAS factor variable as numeric.
 X$CHAS <- as.numeric(X$CHAS)
-
 # Scaling X and centering Y
-X <- scale( as.matrix(X), center=TRUE, scale=TRUE)
+X <- scale( as.matrix(X), center=T, scale=T)
 Y <- scale( dataset$CMEDV, center=T, scale=F)
 ```
 
 
 
 ```{r lasso, echo=TRUE}
-
 #Lambdas
 lambda.max <- 1e5
 n.lambdas <- 74
@@ -134,7 +133,7 @@ m3.rr <- cv.glmnet(X, Y, nfolds=10, lambda =  lambda.v, standardize=TRUE, interc
 ```
 
 
-```{r ridge-regression, echo=TRUE}
+```{r ridge-regression2, echo=TRUE}
 m3.rr <- cv.glmnet(X, Y, nfolds=10, lambda =  lambda.v, standardize=FALSE, intercept=FALSE, alpha=0)
 plot(m3.rr, main="Lambdas")
 abline(v=log(m3.rr$lambda.min),col=2,lty=2)
@@ -161,7 +160,7 @@ Yet if we take a look at the plot which compares the Mean Square error to with t
 
 However, our model starts the curve later on (around 4 units), meaning that the Mean Squared Error does not start increasing until reaching higher values of $\lambda$.
 
-```{r ridge-regression, echo=TRUE}
+```{r ridge-regression3, echo=TRUE}
 lambda.glm <- m3.rr$lambda
 df.v.g <- numeric(n.lambdas)
 for (l in 1:n.lambdas){
