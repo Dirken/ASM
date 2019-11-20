@@ -77,7 +77,7 @@ p <- dim(X)[2]
 lambda.max <- 1e5
 n.lambdas <- 74 #tuned
 lambda.values <- exp(seq(0,log(lambda.max+1),length=n.lambdas))-1
-d2 <- eigen(t(X)%*%X,symmetric = TRUE, only.values = TRUE)$values
+d2 <- eigen(t(X)%*%X,symmetric = T, only.values = T)$values
 df.v <- numeric(n.lambdas)
 for (l in 1:n.lambdas){
   lambda <- lambda.values[l]
@@ -89,17 +89,16 @@ lasso <- glmnet(X, Y, lambda=lambda.values)
 
 ```{r lassoplot, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 # Plotting
-minLambda = min(lasso$lambda + lasso$dev)
 par(mfrow=c(1,2))
+minLambda <- min(lasso$lambda + lasso$dev)
 plot(lasso, xvar="lambda")
-plot(log(lasso$lambda), lasso$dev.ratio, type='b')
+plot(log(lasso$lambda), lasso$dev.ratio, type='p')
 abline(v=minLambda,col=2,lty=2)
 ```
 
-
 In the first plot, we can see each different coefficient for each color. We can say that we have a bigger penalization if we use more variables. If we increase lambda, less variables are used. 
 
-## Compare the 10-fold cv results with the ones you implemented in your previously
+## Compare the 10-fold cv with the one you implemented previously
 
 ```{r ridge-regression, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 ridge_regression_model <- glmnet(X, Y, alpha=0, standardize=FALSE)
@@ -124,7 +123,7 @@ abline(v=log(glmnet.cv$lambda.1se),col=2,lty=2)
 cvm <- rev(glmnet.cv$cvm)
 kFold <-  MSPEkfold(X, Y, 10, n.lambdas, lambda.values, dim(X)[1])
 points(log(lambda.values), kFold, col=5)
-legend("bottomright", c("GLMnet Error", "kFold error"), col=c(2,5), lty=c(2,2), lwd=c(1,1))
+legend("bottomright", c("GLMnet Error", "k-Fold error"), col=c(2,5), lty=c(2,2), lwd=c(1,1))
 min.lambda <- data.frame("kFold" = lambda.values[which.min(kFold)], "GLMnet" = glmnet.cv$lambda.min)
 min.df <- data.frame("kFold" = df.v[which.min(kFold)],
                      "GLMnet" = df.v[which(lambda.values == glmnet.cv$lambda.min)])
@@ -137,7 +136,7 @@ kable(result, format="latex", booktabs=TRUE)  %>%
   kable_styling(position = "center")
 ```
 
-The previous plot shows us that both methods follows the same curve but kFold method starts the curve later, it starts to increase MSE until lambda is around 6-8.
+The previous plot shows us that both methods follows the same curve but k-Fold method starts the curve later, it starts to increase MSE until lambda is around 6-8.
 
 ```{r ridge-regression3, echo=TRUE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
 lambda.glm <- glmnet.cv$lambda 
@@ -156,6 +155,6 @@ points(degrees_of_freedom, kFold, col=4, pch=19, cex=.75)
 legend("bottomright", c("glmnet","kfold"), pch=c(19, 19), col=c(2, 4))
 ```
 
-In the previous plot we can see in red points the values of the degrees of freedom against the MSE from GLMnet, and the blue points representing the kFold method. As we can see, with 0 and 12 degrees of freedom the MSE is equal for both methods, as we expect, but each one gets a different curves. 
+In the previous plot we can see in red points the values of the degrees of freedom against the MSE from GLMnet, and the blue points representing the k-Fold method. As we can see, with 0 and 12 degrees of freedom the MSE is equal for both methods, as we expect, but each one gets a different curves. 
 
-kFold method gets the error lower as less variables are used (more d.f.) The glmnet function proves to be getting more error around 4-8 degrees of freedom, so for this reason, we discard it. Otherwise, kFold method proves to be getting less error with the same degrees of freedom, so this would be our final method.
+k-Fold method gets the error lower as less variables are used (more d.f.) The glmnet function proves to be getting more error around 4-8 degrees of freedom, so for this reason, we discard it. Otherwise, k-Fold method proves to be getting less error with the same degrees of freedom, so this would be our final method.
