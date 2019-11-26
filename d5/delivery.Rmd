@@ -1,0 +1,343 @@
+---
+title: "Estimating the conditional variance by local linear regression"
+author: "Joel Cantero Priego & Ricard Meyerhofer Parra"
+date: "22/11/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library("kableExtra")
+library(sm)
+library(KernSmooth)
+library(dplyr)
+set.seed(777)
+minimums <- data.frame(Bandwith_Model_1=rep(0,2), Bandwith_Model_2=rep(0,2),
+                     row.names = c("Loc","Sm"))
+
+```
+
+```{r Bandwith selection, include=FALSE}
+# bandwith_selection.R Computing of best bandiwth parameter for 
+#             Local polynomial regression model (with locpolreg)
+#            
+# Input: 
+#      x,y  Observed data (two (n,1) vectors)
+#      h.v  Smoothing parameter candidates
+#      q    degree of the local polynomial to be fitted (default: 1)
+#      type.kernel "normal"  (Gaussian, default), 
+#                  "epan"    (Epanechnikov) or 
+#                  "rs.epan" (re-scaled Epanechnikov)
+#                  "unif"    (Uniform Kernel in [-1,1])
+#
+# Output:  A list with three elements:
+#      h.v  Smoothing parameter candidates
+#      cv   LOOCV error estimate
+#      gcv  GCV error estimate
+#
+# Use:
+#      result <- h.cv.gcv(x,y,h.v,q,type.kernel)
+# 
+
+h.cv.gcv <- function(x,y,h.v = exp(seq(log(diff(range(x))/20),
+                                       log(diff(range(x))/4),l=10)), 
+                     q=1,type.kernel="normal") {
+  n <- length(x)
+  cv <- h.v*0
+  gcv <- h.v*0
+  for (i in (1:length(h.v))){
+    h <- h.v[i]
+    aux <- locpolreg(x=x,y=y,h=h,q=q,tg=x,
+                     type.kernel=type.kernel, doing.plot=FALSE)
+    S <- aux$S
+    h.y <- aux$mtgr
+    hii <- diag(S)
+    av.hii <- mean(hii)
+    cv[i] <- sum(((y-h.y)/(1-hii))^2)/n
+    gcv[i] <- sum(((y-h.y)/(1-av.hii))^2)/n
+  }
+  return(list(h.v=h.v,cv=cv,gcv=gcv))
+}
+
+h.k.fold.cv <- function(x,y,h.v = exp(seq(log(diff(range(x))/20),
+                                          log(diff(range(x))/4),l=10)), 
+                        k=10,q=1,type.kernel="normal"){
+  n <- length(x)
+  perm <- sample(1:n)
+  xperm <- x[perm]
+  yperm <- y[perm]
+  
+  k.cv <- h.v*0
+  for (i in (1:length(h.v))){
+    h <- h.v[i]
+    k.cv[i] <- k.fold.cv(x=xperm,y=yperm,k=k,h=h,q=q,
+                         type.kernel=type.kernel)
+  }
+  return(list(k=k,h.v=h.v,k.cv=k.cv))
+}
+```
+
+
+```{r locpolreg, include=FALSE}
+# locpolreg.R Local polynomial regression for estimateing the 
+#             regression function or its r-th derivative
+#            
+# Input: 
+#      x,y  Observed data (two (n,1) vectors)
+#      h    Smoothing parameter 
+#      q    degree of the local polynomial to be fitted (default: 1)
+#      r    order of the derivative to be estimate (Default: 0, the function)
+#      tg   grid of values t where the estimated regression function 
+#           is evaluated (default: x)
+#      type.kernel "normal"  (Gaussian, default), 
+#                  "epan"    (Epanechnikov) or 
+#                  "rs.epan" (re-scaled Epanechnikov)
+#                  "unif"    (Uniform Kernel in [-1,1])
+#
+# Output:  An object with two elements, 
+#      mtg  Estimated values of the r-th derivative of the regression function at points in vector tg
+#      S    The Ssmoothing matrix
+#
+# Use:
+#      result <- locpolreg(x,y,h,q,r,tg,type.kernel)
+# 
+locpolreg <- function(x,y,h=(max(x)-min(x))/5,q=1,r=0,tg=NULL,type.kernel="normal",
+                      nosubplot=FALSE,doing.plot=TRUE, ...){
+   if (is.null(tg)){tg<-x}                  
+   aux <- sort(tg,index.return=T)
+   sorted.tg <- tg[aux$ix]
+   sorted.tg.ix <- aux$ix
+
+   n <- length(x);
+   m <- length(tg);
+   mtgr <- numeric(m);
+   S <- matrix(0,nrow=m,ncol=n)
+
+   for (i in seq(1,m)){
+      aux <- kernel((x-tg[i])/h,type=type.kernel);
+      Ih <- (aux>0);
+      ni <- sum(Ih);     
+      xh <- x[Ih]-tg[i];
+      Dq <- matrix(1,nrow=ni,ncol=q+1);
+      if (q>0){for (j in 1:q) Dq[,j+1] <- xh^j}
+      Wx <- kernel(xh/h,type=type.kernel)/h;
+      Wm <- Wx%*%ones(1,q+1);
+      Dqq <- Wm*Dq;
+      Si <- solve(t(Dq)%*%Dqq)%*%t(Dqq);
+      beta <- Si%*%y[Ih];
+      mtgr[i] <- factorial(r)*beta[r+1];
+      S[i,Ih] <- Si[r+1,]
+   }
+  
+   if (doing.plot){
+      if (r==0){
+        if (nosubplot) par(mfrow=c(1,1))
+        plot(x,y,col="grey",...)
+        lines(sorted.tg,mtgr[sorted.tg.ix],col=1,lwd=2)
+      } 
+      else{
+         par(mfrow=c(2,1))
+         aux <- locpolreg(x,y,h,q,0,tg,nosubplot=F,type.kernel,...)
+         plot(sorted.tg,mtgr[sorted.tg.ix],type="n", 
+              xlab="x",ylab="Estimated derivative")
+         abline(h=0,col=4)
+         lines(sorted.tg,mtgr[sorted.tg.ix],col=1,lwd=2)
+      }
+   }
+return(list(mtgr=mtgr,S=S))
+}
+
+epan <- function(x){pmax(.75*(x+1)*(1-x))}
+kernel <- function(x,type=c("normal","epan","rs.epan","unif")){
+   switch(type[1],
+          epan = pmax(.75*(x+1)*(1-x),0),
+          rs.epan = pmax(.75*(x/sqrt(5)+1)*(1-x/sqrt(5))/sqrt(5),0),
+          unif = as.numeric( (abs(x)<=1) )/2,
+          dnorm(x))
+}
+ones <- function(n,m){matrix(1,nrow=n,ncol=m)}
+
+```
+
+## Introduction
+
+In this assignment, we are going to use the Aircraft data from the R library sm. These data record six characteristics of aircraft designs which appeared during the twentieth century.
+
+Variable name         | Description                          | Values
+:--------------:|:-------------------------------------:|:-------------------------------------:
+Yr| year of first manufacture | Integer |
+Period| a code to indicate one of three broad time periods |	Integer |
+Power| total engine power (kW)	| Integer |
+Span| wing span (m) | Integer |
+Length|  length (m)	| Integer |
+Weight|  maximum take-off weight (kg)	| Integer |
+Speed|  maximum speed (km/h) | Integer |
+Range| range (km) | Integer |
+
+We transform data taken logs (except Yr and Period): lgPower, ..., lgRange.
+
+The main objective of this project is to estimate the coniditional variance of *lgWeight* (variable Y) given Yr (variable x) using two different procedures:
+
+* **loc.pol.reg** function that we can find in ATENEA choosing all the bandwith values we need by leave-one-out cross-validation.
+
+* **sm.regression** from library sm choosing all the bandiwth values we need by direct plug-in (using the function dpill from the same library KernSmooth).
+
+```{r loading-data, include=FALSE}
+data(aircraft)
+help(aircraft)
+attach(aircraft)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+# Converting all variables except Yr and Period to logs
+lgPower <- log(Power)
+lgSpan <- log(Span)
+lgLength <- log(Length)
+lgWeight <- log(Weight)
+lgSpeed <- log(Speed)
+lgRange <- log(Range)
+```
+
+## Using *locpolreg* function
+
+Thanks to **loc.pol.reg function** from **locpolreg.R script** and **h.cv.gcv** and **h.k.fold.cv** from **Bandwidth_choice.Rmd** we are going to choose the **bandwith by leave-one-out cross-validation** using the **Gaussian method** (normal).
+
+First of all, we define the bandwith candidates and we select the minimum one (4.19). Then, we can perform the local linear regression thanks to **locpolreg function** for the response variable **lgWeight** depending on the explanatory variable **Yr**. We obtain as well the residual values.
+
+```{r echo=FALSE, fig.height=3, fig.width=7}
+variance_estimate <- data.frame(Locpolreg=rep(0,length(Yr)),
+                       Sm.Regression=rep(0,length(Yr)))
+result <- h.cv.gcv(x=Yr, 
+                     y=lgWeight, 
+                     h.v= exp(seq(log(diff(range(Yr))/100), log(diff(range(Yr))/4),l=10)), 
+                     q=1, 
+                     type.kernel="normal")
+par(mfrow = c(1, 2))
+result <- as.data.frame(result)
+result <- arrange(result, exp(seq(log(diff(range(Yr))/100), log(diff(range(Yr))/4),l=10)))
+plot(cv~exp(seq(log(diff(range(Yr))/100), log(diff(range(Yr))/4),l=10)), result, type="b")
+minimum <- result[which.min(result$cv),"h.v"]
+# Conclusion 1.1
+conclusion11 <- minimum
+abline(v=minimum, col="lightgray")
+text(x=minimum,y=result[which.min(result$cv),"cv"], labels
+     =round(minimum,digits=2), pos = 3, col = 2)
+
+model <- locpolreg(x=Yr,y=lgWeight,h=minimum,q=1,type.kernel="normal")
+eps <- lgWeight - model$mtgr
+eps2 <- eps*eps
+Z <- log(eps2)
+```
+
+Once we have obtained the residual values $\hat{\epsilon}_i$ we transform the estimated residuals to $z_i = \log{\hat{\epsilon}^2_i }$. Finally, we fit a nonparametric regression to data ($x_i$,$z_i$) and call the estimated function $\hat{q}(x)$, that is an estimate of $\log{\sigma^2(x) }$. We perform a new model with a new bandwidth
+ 
+```{r echo=FALSE, fig.height=3, fig.width=7}
+par(mfrow=c(1,2))
+result <- h.cv.gcv(x=Yr,
+                     y=Z,
+                     h.v=exp(seq(log(diff(range(Yr))/100), log(diff(range(Yr))/4),l=10)),
+                     q=1,
+                     type.kernel="normal")
+result <- as.data.frame(result)
+result <- arrange(result, exp(seq(log(diff(range(Yr))/100), log(diff(range(Yr))/4),l=10)))
+
+plot(cv~exp(seq(log(diff(range(Yr))/100), log(diff(range(Yr))/4),l=10)), result, type="b")
+minimum <- result[which.min(result$cv),"h.v"]
+# Conclusion 1.2
+conclusion12 <- minimum
+abline(v=minimum, col="lightgray")
+
+text(x=minimum,
+     y=result[which.min(result$cv),"cv"], 
+     labels=round(minimum,digits=2), pos = 3, col = 2)
+
+resultlocpolreg <- locpolreg(x=Yr,
+                             y=Z,
+                             h=minimum,
+                             q=1,
+                             type.kernel="normal")
+
+```
+
+Finally, we draw a graphic of $\epsilon_i^2$ against $x_i$ and superimpose the estimated function $\hat{\sigma}^2(x)$. Lastly we draw the function $\hat{m}(x)$ and superimpose the bands $\hat{m}(x) \pm 1.96\hat{\sigma}(x)$.
+
+```{r echo=FALSE, fig.height=3, fig.width=7}
+variance_estimate$loc <- sqrt(exp(resultlocpolreg$mtgr))
+op<-par(mfrow=c(1,2))
+plot(Yr, eps2, cex=0.8)
+points(Yr, sqrt(exp(resultlocpolreg$mtgr)), type="l", col="red", lwd=2)
+
+plot(Yr,model$mtgr)
+points(Yr,model$mtgr+1.96*exp(resultlocpolreg$mtgr), type="l", col="red", lty=2)
+points(Yr,model$mtgr-1.96*exp(resultlocpolreg$mtgr), type="l", col="red", lty=2)
+par(op)
+```
+
+## Using *sm.regression* function
+
+In this second part, we will follow the same steps as the previous part but now using **dpill** function from **KernSmooth** package to get the **Plug-in** parameter. Then, we compute the **sm.regression** function from the **sm package** with this bandwidth as parameter. We will obtain the local linear regression models $\hat{m}(x)$ and $\hat{q}(x)$. As before, we select the Gaussian kernel and we compute the residual values.
+
+```{r echo=FALSE, fig.align='center', fig.height=3, fig.width=7}
+minimum <- dpill(x=Yr, y=lgWeight)
+# Conclusion
+conclusion21 <- minimum
+result <- sm.regression(x=Yr,
+                        y=lgWeight,
+                        h=minimum,
+                        eval.grid=FALSE, 
+                        eval.points=Yr)
+
+
+```
+
+Once we have performed the local linear regression we can compute the residual values $\hat{\epsilon}_i =$ and $z_i$ to generate a new model for $z_i$ against $x_i$.
+
+```{r echo=FALSE, fig.align='center', fig.height=3, fig.width=7}
+eps <- lgWeight - result$estimate
+minimum <- dpill(x=result$eval.points, y=log(eps*eps))
+# Conclusion 2.2
+conclusion22 <- minimum
+sm.result <- sm.regression(x=result$eval.points,
+                          y=log(eps*eps),
+                          h=minimum,
+                          eval.grid=FALSE,
+                          eval.points=result$eval.points)
+```
+
+$\hat{\sigma}^2(x) =\exp{\hat{q}(x)}$ is the conditional variance where $\hat{q}(x)$ is the estimate we have obtained from the previous model. 
+Finally, we draw a graphic of $\epsilon_i^2$ against $x_i$ and superimpose the estimated function $\hat{\sigma}^2(x)$. Lastly we draw the function $\hat{m}(x)$ and superimpose the bands $\hat{m}(x) \pm 1.96\hat{\sigma}(x)$.
+
+```{r echo=FALSE, fig.height=3, fig.width=7}
+sigma2 <- exp(sm.result$estimate)
+sigma <- sqrt(sigma2)
+variance_estimate$sm <- sqrt(exp(sm.result$estimate))
+op<-par(mfrow=c(1,2))
+plot(result$eval.points, eps2, cex=0.8)
+points(result$eval.points, exp(sm.result$estimate), type="l", col="red", lwd=2)
+
+plot(result$eval.points, result$estimate)
+points(result$eval.points, result$estimate+1.96*exp(sm.result$estimate),
+       type="l", col="red", lty=2)
+points(result$eval.points, result$estimate-1.96*exp(sm.result$estimate),
+       type="l", col="red", lty=2)
+par(op)
+```
+
+## Conclusion
+
+We can say that the bandwithvalues obtained from each method are close. In the case of LocPolReg, the first model obtained value is **4.18** and for the second one is **5.98**. In Sm.Regression case, the first bandwith model we obtain **5.02** and for the second model **4.28**.
+
+If we plot these values, we can see that the shape is more or less similar but Sm.Regression is a little bit more extrem than LocPolReg.
+
+```{r echo=FALSE, fig.height=3, fig.width=7}
+plot(Yr, variance_estimate$Locpolreg, col=2, pch=18,
+     ylim = c(min(min(variance_estimate$loc),min(variance_estimate$sm)),
+              max(max(variance_estimate$loc),max(variance_estimate$sm))),
+     xlab="Yr", ylab="Variance estimate")
+points(Yr, variance_estimate$sm, col=5,  pch=20)
+points(Yr, variance_estimate$loc, col=1,  pch=20)
+legend("topleft", legend = c("Loc","SM"), col=c(1,5),
+       pch=c(18,20))
+```
