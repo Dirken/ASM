@@ -1,0 +1,475 @@
+---
+title: "Poisson Regression"
+author: "Joel Cantero Priego & Ricard Meyerhofer Parra"
+date: "24/11/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	message = FALSE,
+	warning = FALSE
+)
+set.seed(777)
+library(data.table)
+library(mice)
+```
+
+## Introduction
+
+In this assignment, we are going to use the UFO's National UFO Reporting Center dataset, it is available on UFO sightings in the United States in this millennium (till 2014).The database has a total of 52,813 reported sightings grouped into 20,984 observations, these have been classified according to 5 variables:
+
+Variable name   | Description                           | Values
+:--------------:|:-------------------------------------:|:-------------------------------------:
+State| USA State where the UFO was sighted | chr (50 states) |
+Period| Period of five years when it was sighted |	int (1: 2000-2004, 2: 2005-2009, 3: 2010-2014) |
+Month| Month of the year when it was sighted	| int (1:12) |
+Weekday| Day of the week when it was sighted | int (1: 7)|
+Hour| Time of the day when it was sighted.	| int (1: 00-05, 2: 06-11, 3: 12-17,4: 18-23)|
+Sights| Number of sights recorded	| int |
+
+First of all, we are going to convert all explanatory variables as factors (categorical variables). 
+
+```{r loading-csv, include=FALSE}
+UFO <- fread('UFO.csv')
+
+# Converting explanatory variables to factors
+UFO$State <- factor(UFO$State)
+UFO$Period <- factor(UFO$Period, levels = c(1,2,3), labels = c("2000-2004", "2005-2009", "2010-2014"))
+UFO$Month <- factor(UFO$Month, levels = c(1,2,3,4,5,6,7,8,9,10,11,12), labels = c("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"))
+UFO$Weekday <- factor(UFO$Weekday, levels = c(1,2,3,4,5,6,7), labels = c("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"))
+UFO$Hour <- factor(UFO$Hour)
+
+```
+
+Before we start doing the Exploratory Data Analysis, we have to check if there is some missing value in our dataset.
+
+```{r check-missing-values, echo=FALSE, fig.height=3, fig.width=12, message=FALSE, warning=FALSE, results='hide'}
+md.pattern(UFO)
+```
+
+Thanks to **md.pattern** function from mice package, we can assume that our dataset is cleaned.
+
+## Exploratory Data Analysis
+
+In this section we are going to focus in explaining the most interesting conclusions of our data, perform an univariate and multivariate analysis of the variables in order to find outliers and see how each of these variables is related with the sights. 
+
+### State
+
+In State variable, we can observe that there is a certain imbalanced proportion in State proportion. We can identify some minority states like: PR (7), DC (7), ND (80), SD (123), WY (110) against some majority states like CA (976), FL (801), IL (644), NY (734)... 
+
+In order to see if there is any pattern we are going to display a map of the USA painted with the number of sights on each state.
+
+
+```{r, include=FALSE}
+states <- function(input){
+if(tolower("Alabama") == input)	return("AL")
+if(tolower("Alaska") == input)	return("AK")
+if(tolower("Arizona") == input)	return("AZ")
+if(tolower("Arkansas") == input)	return("AR")
+if(tolower("California") == input)	return("CA")
+if(tolower("Colorado") == input)	return("CO")
+if(tolower("Connecticut") == input)	return("CT")
+if(tolower("Delaware") == input)	return("DE")
+if(tolower("Florida") == input)	return("FL")
+if(tolower("Georgia") == input)	return("GA")
+if(tolower("Hawaii") == input)	return("HI")
+if(tolower("Idaho") == input)	return("ID")
+if(tolower("Illinois") == input)	return("IL")
+if(tolower("Indiana") == input)	return("IN")
+if(tolower("Iowa") == input)	return("IA")
+if(tolower("Kansas") == input)	return("KS")
+if(tolower("Kentucky") == input)	return("KY")
+if(tolower("Louisiana") == input)	return("LA")
+if(tolower("Maine") == input)	return("ME")
+if(tolower("Maryland") == input)	return("MD")
+if(tolower("Massachusetts") == input)	return("MA")
+if(tolower("Michigan") == input)	return("MI")
+if(tolower("Minnesota") == input)	return("MN")
+if(tolower("Mississippi") == input)	return("MS")
+if(tolower("Missouri") == input)	return("MO")
+if(tolower("Montana") == input)	return("MT")
+if(tolower("Nebraska") == input)	return("NE")
+if(tolower("Nevada") == input)	return("NV")
+if(tolower("New Hampshire") == input)	return("NH")
+if(tolower("New Jersey") == input)	return("NJ")
+if(tolower("New Mexico") == input)	return("NM")
+if(tolower("New York") == input)	return("NY")
+if(tolower("North Carolina") == input)	return("NC")
+if(tolower("North Dakota") == input)	return("ND")
+if(tolower("Ohio") == input)	return("OH")
+if(tolower("Oklahoma") == input)	return("OK")
+if(tolower("Oregon") == input)	return("OR")
+if(tolower("Pennsylvania") == input)	return("PA")
+if(tolower("Rhode Island") == input)	return("RI")
+if(tolower("South Carolina") == input)	return("SC")
+if(tolower("South Dakota") == input)	return("SD")
+if(tolower("Tennessee") == input)	return("TN")
+if(tolower("Texas") == input)	return("TX")
+if(tolower("Utah") == input)	return("UT")
+if(tolower("Vermont") == input)	return("VT")
+if(tolower("Virginia") == input)	return("VA")
+if(tolower("Washington") == input)	return("WA")
+if(tolower("West Virginia") == input)	return("WV")
+if(tolower("Wisconsin") == input)	return("WI")
+if(tolower("Wyoming") == input)	return("WY")
+}
+```
+```{r, echo=FALSE, fig.height=15, fig.width=20, message=FALSE, warning=FALSE, results='hide'}
+#barplot(table(UFO$State), main="Bar Chart of State")
+
+library(maps)
+library(ggplot2)
+us_states <- map_data("state")
+
+us_states$region <- lapply(us_states$region, states)
+head(us_states)
+unique(us_states$region)
+
+map <- table(UFO$State)
+
+us_states$sights[us_states$region == "AL"] <- map["AL"]
+us_states$sights[us_states$region == "AK"] <- map["AK"] 
+us_states$sights[us_states$region == "AZ"] <- map["AZ"]
+us_states$sights[us_states$region == "AR"] <- map["AR"]
+us_states$sights[us_states$region == "CA"] <- map["CA"]
+us_states$sights[us_states$region == "CO"] <- map["CO"]
+us_states$sights[us_states$region == "CT"] <- map["CT"]
+us_states$sights[us_states$region == "DE"] <- map["DE"]
+us_states$sights[us_states$region == "FL"] <- map["FL"]
+us_states$sights[us_states$region == "GA"] <- map["GA"]
+us_states$sights[us_states$region == "HI"] <- map["HI"]
+us_states$sights[us_states$region == "ID"] <- map["ID"]
+us_states$sights[us_states$region == "IL"] <- map["IL"]
+us_states$sights[us_states$region == "IN"] <- map["IN"]
+us_states$sights[us_states$region == "IA"] <- map["IA"]
+us_states$sights[us_states$region == "KS"] <- map["KS"]
+us_states$sights[us_states$region == "KY"] <- map["KY"]
+us_states$sights[us_states$region == "LA"] <- map["LA"]
+us_states$sights[us_states$region == "ME"] <- map["ME"]
+us_states$sights[us_states$region == "MD"] <- map["MD"]
+us_states$sights[us_states$region == "MA"] <- map["MA"]
+us_states$sights[us_states$region == "MI"] <- map["MI"]
+us_states$sights[us_states$region == "MN"] <- map["MN"]
+us_states$sights[us_states$region == "MS"] <- map["MS"]
+us_states$sights[us_states$region == "MO"] <- map["MO"]
+us_states$sights[us_states$region == "MT"] <- map["MT"]
+us_states$sights[us_states$region == "NE"] <- map["NE"]
+us_states$sights[us_states$region == "NV"] <- map["NV"]
+us_states$sights[us_states$region == "NH"] <- map["NH"]
+us_states$sights[us_states$region == "NJ"] <- map["NJ"]
+us_states$sights[us_states$region == "NM"] <- map["NM"]
+us_states$sights[us_states$region == "NY"] <- map["NY"]
+us_states$sights[us_states$region == "NC"] <- map["NC"]
+us_states$sights[us_states$region == "ND"] <- map["ND"]
+us_states$sights[us_states$region == "OH"] <- map["OH"]
+us_states$sights[us_states$region == "OK"] <- map["OK"]
+us_states$sights[us_states$region == "OR"] <- map["OR"]
+us_states$sights[us_states$region == "PA"] <- map["PA"]
+us_states$sights[us_states$region == "RI"] <- map["RI"]
+us_states$sights[us_states$region == "SC"] <- map["SC"]
+us_states$sights[us_states$region == "SD"] <- map["SD"]
+us_states$sights[us_states$region == "TN"] <- map["TN"]
+us_states$sights[us_states$region == "TX"] <- map["TX"]
+us_states$sights[us_states$region == "UT"] <- map["UT"]
+us_states$sights[us_states$region == "VT"] <- map["VT"]
+us_states$sights[us_states$region == "VA"] <- map["VA"]
+us_states$sights[us_states$region == "WA"] <- map["WA"]
+us_states$sights[us_states$region == "WV"] <- map["WV"]
+us_states$sights[us_states$region == "WI"] <- map["WI"]
+us_states$sights[us_states$region == "WY"] <- map["WY"]
+
+p <- ggplot(data = us_states,
+            mapping = aes(x = long, y = lat,
+                          group = group, fill= sights))
+
+p + geom_polygon(color = "gray90", size = 0.1) +
+    coord_map(projection = "albers", lat0 = 39, lat1 = 45) +
+    guides(fill = FALSE)
+```
+
+If we check it with a barplot, we can see that there is not a strong correlation between the year of release and the gross obtained from those years. We can observe that California state has a high mean of sights than the rest of states which could possibly also be due to its population among other factors. We can also observe some outliers values in IL State.
+
+```{r, echo=FALSE, fig.height=7, fig.width=20}
+plot(UFO$State, UFO$Sights)
+```
+
+\newpage
+
+### Period
+
+No problems for period variable, there is a certain expected balanced in period-years proportion even that we can see a growth in the number of observations.
+
+```{r, echo=FALSE, fig.height=3, fig.width=10, message=FALSE, warning=FALSE}
+barplot(table(UFO$Period), main="Bar Chart of Period")
+```
+
+
+####Relationship between period and sights
+We can see that there is not a strong correlation between the period-year and the sights obtained. Even that 2010-2014 period is better than the previous ones the trend seems to be the same across the years.
+
+We can look at some outlier point in 2000-2004 with 74 sights, that extreme value is the same we have observed at IL state. 
+
+```{r, echo=FALSE, fig.height=6, fig.width=12}
+plot(UFO$Period, UFO$Sights)
+```
+\newpage
+
+### Month
+
+No problems for month variable, there is a certain expected balanced in months proportion.
+
+```{r, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
+barplot(table(UFO$Month), main="Bar Chart of Month")
+
+
+```
+
+####Relationship between months and sights
+We can see that there is not a strong correlation between the month and the sights obtained from these observations. Even that there are some months better than others the trend seems to be the same across the year. We obtain the same outlier as the previous analysis.
+
+```{r, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
+plot(UFO$Month, UFO$Sights)
+```
+
+### Weekday
+
+No problems for Weekday variable, there is a certain expected balanced in weekday proportion.
+
+```{r, echo=FALSE, fig.height=4, fig.width=12, message=FALSE, warning=FALSE}
+barplot(table(UFO$Weekday), main="Bar Chart of Weekday")
+```
+
+####Relationship between weekdays and sights
+We can see that there is not a strong correlation between the weekdays and the sights obtained from these observations. We obtain the same outlier as the previous analysis.
+
+```{r, echo=FALSE, fig.height=5, fig.width=12, message=FALSE, warning=FALSE}
+plot(UFO$Weekday, UFO$Sights)
+```
+
+### Hour
+
+We can see a certain imbalanced proportion in hour period. There are more observations from 18-23 hours than the other hour periods. 
+
+```{r, echo=FALSE, fig.height=4, fig.width=12}
+barplot(table(UFO$Hour), main="Bar Chart of Hour")
+```
+
+####Relationship between hours and sights
+We can see that there is not a strong correlation between the hours and the sights obtained from these observations. However, we can see that 18-23 hour period the mean is higher than the other hour periods. We obtain the same outlier as the previous analysis.
+
+```{r, echo=FALSE, fig.height=6, fig.width=12, message=FALSE, warning=FALSE}
+plot(UFO$Hour, UFO$Sights)
+```
+
+#### Dealing with outliers
+
+We have decided to remove the outlier we have detected on Exploratory Data Analysis. We think it is an extreme value and it will impact on our model performance. 
+
+```{r, fig.height=6, fig.width=12, message=FALSE, warning=FALSE, include=FALSE}
+# Removing outlier
+UFO <- UFO[UFO$Sights != 72]
+```
+
+## Fitting the log-linear model without interactions.
+
+We are going to build our generalized linear model as a log-linear model depending on all the variables with no interactions.
+
+```{r model, echo=FALSE, message=FALSE, warning=FALSE}
+library("knitr")
+library("kableExtra")
+library(broom)
+library(dplyr)
+model <- glm(Sights ~ ., family = poisson(link = "log"),  data = UFO)
+kable(glance(model), format="latex", booktabs=TRUE) %>% 
+  kable_styling(latex_options="scale_down")
+```
+
+## First Order Interactions 
+
+We evaluate possible first order interactions and we checked if it was significantly different to the complete model and if it had significant interactions. We found that again the model fits our data but that it has a smaller deviance than the full model.
+
+```{r, eval=FALSE, include=FALSE}
+
+foi <- glm(Sights ~ .*Period - Period*Period,family = poisson(link = "log"),  data = UFO)
+save(foi,file="foi1")
+anova(model,foi, test = "Chisq")
+anova(foi, test = "Chisq")
+#foi <- glm(Sights ~ .*State - State*State, family = poisson(link = "log"),  data = UFO)
+#save(foi,file="foi2")
+#anova(model,foi, test = "Chisq")
+#anova(foi, test = "Chisq")
+#foi <- glm(Sights ~ .*Month - Month*Month, family = poisson(link = "log"),  data = UFO)
+#save(foi,file="foi3")
+#anova(model,foi, test = "Chisq")
+#anova(foi, test = "Chisq")
+#foi <- glm(Sights ~ .*Weekday - Weekday*Weekday, family = poisson(link = "log"),  data = UFO)
+#save(foi,file="foi4")
+#anova(model,foi, test = "Chisq")
+#anova(foi, test = "Chisq")
+#foi <- glm(Sights ~ .*Hour - Hour*Hour, family = poisson(link = "log"),  data = UFO)
+#save(foi,file="foi5")
+#anova(model,foi, test = "Chisq")
+#anova(foi, test = "Chisq")
+```
+
+
+
+## Automatic Variable Selection process
+
+We are going to use the stepwise procedure by using AIC and BIC criterions to choose our final model. We are going to use both criterias and starting from null and complete model in order to compare all models and pick the one that performs the best + is more legible and simpler.
+
+```{r, include=FALSE, results="hide"}
+#this took a WHILE
+#nullModel <- glm(Sights ~ 1, 
+#                 family = poisson(link = "log"),  
+#                 data = UFO)
+#save(nullModel,file="nullModel")
+#
+#completeModel <- glm(Sights ~ (.)^2, 
+#            family = poisson(link = "log"),  
+#            data = UFO)
+#save(completeModel,file="completeModel")
+#
+#BICForward <- step(nullModel, 
+#                   scope = list(upper=completeModel), 
+#                   direction="both", 
+#                   criterion = "BIC",
+#                   k = log(nrow(UFO)))
+#save(BICForward,file="BICForward")
+#
+#BICBackward <- step(completeModel, 
+#                    scope = list(lower=nullModel), 
+#                    direction="both", 
+#                    criterion = "BIC", 
+#                    k = log(nrow(UFO)))
+#save(BICBackward,file="BICBackward")
+#
+#AICForward <- step(nullModel, 
+#                   scope = list(upper=completeModel), 
+#                   direction="both", 
+#                   criterion = "AIC", 
+#                   k = 2)
+#save(AICForward,file="AICForward")
+
+load("BICForward")
+load("AICForward")
+load("BICBackward")
+load("AICBackward")
+load("nullModel")
+load("completeModel")
+```
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, results='hide'}
+summary(BICForward)
+summary(AICForward)
+summary(BICBackward)
+summary(AICBackward)
+summary(nullModel)
+```
+### BIC Forward
+
+With the formula: Sights ~ State + Period + Month + Weekday + Hour + State:Hour + Period:Hour
+```{r, echo=FALSE}
+kable(glance(BICForward), format="latex", booktabs=TRUE) %>% 
+  kable_styling(latex_options="scale_down")
+```
+
+### AIC Forward
+With the formula: Sights ~ State + Hour + Period + Month + Weekday + State:Hour + 
+    Hour:Period + State:Period + Hour:Month + Month:Weekday + 
+    Period:Month + Period:Weekday + Hour:Weekday
+```{r, echo=FALSE}
+kable(glance(AICForward), format="latex", booktabs=TRUE) %>% 
+  kable_styling(latex_options="scale_down")
+```
+
+### BIC Backward
+Formula: Sights ~ State + Period + Month + Weekday + Hour + State:Hour + Period:Hour
+
+```{r, echo=FALSE}
+kable(glance(BICBackward), format="latex", booktabs=TRUE) %>% 
+  kable_styling(latex_options="scale_down")
+```
+
+### AIC Backward
+Formula: Sights ~ State + Period + Month + Weekday + Hour + State:Period + State:Hour + Period:Month + Period:Weekday + Period:Hour + Month:Weekday + Month:Hour + Weekday:Hour
+```{r, echo=FALSE}
+kable(glance(AICBackward), format="latex", booktabs=TRUE) %>% 
+  kable_styling(latex_options="scale_down")
+```
+
+We are going to finally chose the BIC forward model. We decide this model over the others because it is way simple and more understandable than the other models, specially AIC ones.
+```{r, message=FALSE, warning=FALSE, include=FALSE}
+chosenModel <- BICForward
+```
+
+We perform an anova test in order to find if our results, are significant. Therefore, it will say us if we need to reject or not the hypothesis test.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE, results='hide'}
+anova(chosenModel, test = "Chisq")
+anova(nullModel, chosenModel, test="Chisq")
+```
+
+Since we have p.value<0.05 we can refuse the null hypothesis which means that we pass the test and that our model is different than the null model. 
+
+```{r plots, echo=FALSE, fig.height=6, fig.width=12, warning=FALSE}
+par(mfrow=c(2,2)) 
+plot(chosenModel)
+```
+
+In the previous plots we can see the following:
+\begin{itemize}
+\item Residuals vs fitted: There is assymetry in the distribution therefore the normality is not fulfilled.
+\item Normal Q-Q:  We can see that the distribution follows the expected values along the normal line except for the right-hand tale. Therefore it looks like as in the previous, is not fulfilled.
+\item Scale-Location: We can see a distribution with a very linear standard deviance residuals along the fitted values, which is a good indicator. However, at the left-hand side, we can see a weird distribution
+\item Residuals vs Leverage: We can see that even we have some outliers that cause this weird performance in the previous plots, we can see that they don't seem to end.
+\end{itemize}
+
+This means that we should take a deeper look at the data for corrections and outlier detection which is out of the scope of this project.
+
+
+# Overdispersion analysis
+
+This test states if the mean and variance are equal or not. If the constant c is > 0 it means that there is overdispersion, whereas if it is < 0 it means that there is underdispersion.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+library(car)
+library(AER)
+dispersiontest(chosenModel)
+```
+
+With trafo = NULL, we obtain a p-value of 1, which means that we cannot reject the null hypothesis, that tells that the true dispersion is not greater than 1. This means that there is underdispersion in the model.
+
+```{r }
+dispersiontest(chosenModel, trafo = 1)
+```
+
+Using a value trafo of 1, the results show that we also cannot reject the null hypothesis, so the results are the same as before.
+
+
+```{r }
+dispersiontest(chosenModel, trafo = 2)
+```
+
+With a trafo value of 2, the results show that the null hypothesis can be rejected, as we have a p-value of 2.2e-16, which means that the alpha is greater than 0 and, therefore, there is overdispersion, but it is very close to 0. 
+
+## Interpretation
+
+For the model interpretation, we will use the *effect* plots, taking into account the interaction terms.
+As we are building a Poisson regression model, we can not directly interpret the coefficients and response values, since they do not represent the response variable class but the value of the link function.
+
+```{r, echo=TRUE, message=FALSE, warning=FALSE}
+library(effects)
+m.effects <- effects::allEffects(chosenModel)
+plot(m.effects$Month)
+plot(m.effects$Weekday)
+plot(m.effects$`Hour:Period`)
+plot(m.effects$`State:Hour`)
+```
+
+We can see that there is some months differences in the reports, we can also see that the more on the weekends we are, the more aliens there is and also the more late the hour, the better and this happens across the years. So as we said before, we can see that the sighting rate per state does not seem to change significantly during the first three hour periods of the day. But from 18-23, we can see that there is more variance in the rate of sightings per state.
+
+
+
