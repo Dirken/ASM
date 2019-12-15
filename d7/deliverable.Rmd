@@ -28,9 +28,10 @@ To implement this function, we had to modify the loo-CV estimation of the expect
 ```{r}
 loglik.CV <- function(x,y,h){
     n <- length(x)
-    pred <- sapply(1:n, function(i,x,y,h){
-                          sm.poisson(x=x[-i],y=y[-i],h=h,eval.points=x[i],display="none")$estimate
-                        }, x,y,h)
+    pred <- sapply(1:n, 
+                  function(i,x,y,h){
+                    sm.poisson(x=x[-i],y=y[-i],h=h,eval.points=x[i],display="none")$estimate
+                  }, x,y,h)
     sum = 0
     for (i in 1:n){
       sum = sum + (log((exp(-pred[i]) * ((pred[i]**y[i])/factorial(y[i])))))/n
@@ -68,6 +69,7 @@ le.fm| Result from Life.expec.f - Life.expec.m	| Integer |
 Inf.Mort.rat|  Mortality ratio | Integer |
 Agric.employ.%| Percentatge of employment that agriculture covers | Integer |
 
+As mentioned by the statement, we are going to load the dataset and we are going to create a new variable $le.fm.r$ which corresponds to the rounded value of $le.fm$ and our goal is to fit a local Poisson regression modeling $le.fm.0$ as a function of $Life.expec$.
 
 ```{r}
 options(stringsAsFactors=F)
@@ -75,20 +77,28 @@ dataset <- read.csv("HDI.2017.subset.csv", sep = ";", header = T, dec=",")
 dataset$le.fm.r <- round(dataset$le.fm)
 ```
 
-```{r}
-plot(dataset$Life.expec, dataset$le.fm.r)
+```{r, fig.height=6, fig.width=12}
+plot(dataset$Life.expec, dataset$le.fm.r,main="Distribution of life expectancy from our dataset", xlab="Life.expec", ylab = "Rounded Life.fm" )
 ```
 
-```{r}
-range.h = c(2, 15)
-h.CV.loglik <- h.cv.sm.poisson(dataset$Life.expec,dataset$le.fm.r ,rg.h=range.h, method=loglik.CV)
+We are going to see which is the bandwidth that bests fits our model, we can see in the following graph that our minimum log-likelihood is found near 3 so is the value that we are going to use.
+```{r, fig.height=6, fig.width=12}
+range.h <- c(1, 12)
+h.CV.loglik <- h.cv.sm.poisson(dataset$Life.expec,dataset$le.fm.r, 
+                               rg.h=range.h, 
+                               method=loglik.CV)
+```
+
+```{r, echo=FALSE, fig.height=6, fig.width=12}
 plot(h.CV.loglik$h,h.CV.loglik$cv.h)
-lines(h.CV.loglik$h,h.CV.loglik$cv.h)
-kable(data.frame(h.CV.loglik$h, h.CV.loglik$cv.h))
+lines(h.CV.loglik$h, h.CV.loglik$cv.h)
+text(h.CV.loglik$h, h.CV.loglik$cv.h, labels=paste0("",round(h.CV.loglik$cv.h,4)), cex= 1.2)
+#kable(data.frame(h.CV.loglik$h, h.CV.loglik$cv.h))
 ```
 
-```{r}
-chosen.h =  h.CV.loglik$h.cv
-m1 <- sm.poisson(dataset$Life.expec, dataset$le.fm.r, h=chosen.h)
-chosen.h
+In the below plot, we can see that the value we are using fits the data as we can see. The selected value is the one that was the closest from 3 which was $h.cv.loglik.h =3.017$. It is not a perfect fit but the way the data is distributed does not seem it is possible to do better.
+```{r, echo=FALSE, fig.height=6, fig.width=12}
+chosen.h <-  h.CV.loglik$h.cv
+m1 <- sm.poisson(dataset$Life.expec, dataset$le.fm.r, h=chosen.h, 
+                 main="Poisson distribution with the chosen bandwidth")
 ```
