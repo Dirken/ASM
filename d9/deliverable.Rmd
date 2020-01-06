@@ -60,9 +60,10 @@ par(mfrow=c(1,1))
 
 Our first model will be a linear model predicting FGm12 with just 2 terms: FGm0 and Treatment.
 
-```{r, echo=TRUE, results='hide'}
+```{r, echo=TRUE, fig.height=6, fig.width=12, results='hide'}
 model.1 <- gam(FGm12 ~ weight + height + DiaPres + SysPres + FGm0 + Treatment, data=hirsutism)
 summary(model.1)
+#vis.gam(model.1)
 ```
 
 As we can see in the summary, weight, height, diaPres and SysPres are p-value>0.05, so the relevant variables are just FGm0 and Treatment1, Treatment2 and Treatment3. So our next model would be this one except irrelevant variables.
@@ -75,9 +76,10 @@ Our second model GAM Model we are going to fit all relevant predictors and we ar
 model.2 <- gam(FGm12 ~ s(FGm0, by=Treatment) + Treatment, data=hirsutism)
 summary(model.2)
 plot(model.2, pages=1,residuals=TRUE)
+vis.gam(model.2)
 ```
 
-This model is greater than model 1 because R-sq. (adj) is about 0.291.
+This model is greater than model 1 because R-sq. (adj) is about 0.291. We can see that Treatment 0 is the only one that does not seem to be linear while the others are.
 
 ## Model 3
 
@@ -85,7 +87,7 @@ Our next model we are going to smooth Fgm0, weight and height.
 ```{r, echo=TRUE, results='hide',fig.height=6, fig.width=12}
 model.3 <- gam(FGm12 ~ s(FGm0, by=Treatment) + s(weight) + s(height), data=hirsutism)
 summary(model.3)
-plot(model.2, pages=1, residuals=TRUE)
+plot(model.3, pages=1, residuals=TRUE)
 ```
 
 We can see again that height and weight are not relevant if we observe p-value. Otherwise, the R squared is about 0.367 and is better than the previous one. 
@@ -93,7 +95,7 @@ We can see again that height and weight are not relevant if we observe p-value. 
 ## Model 4
 
 Now, we are going to use the previous model adding Treatment 
-```{r, echo=TRUE, results='hide',fig.height=6, fig.width=12}
+```{r, echo=TRUE, results='hide',fig.height=4, fig.width=12}
 model.4 <- gam(FGm12 ~ s(FGm0, by=Treatment) + s(weight) + s(height) + Treatment, data=hirsutism)
 summary(model.4)
 plot(model.4, pages=1,residuals=TRUE)
