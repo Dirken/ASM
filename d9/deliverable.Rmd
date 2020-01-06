@@ -12,7 +12,7 @@ library(mgcv)
 
 ## Introduction
 
-In this assignment, we are going to use the Hirsutism dataset. Hirsutism is the excessive hairiness on women in those parts of the body where terminal hair does not normally occur or is minimal -for example, a beard or chest hair. The dataset hirsutism.dat contains artificial values of measures corresponding to some patients in this study. The variables are the following:
+In this assignment, we are going to use the Hirsutism dataset. Hirsutism is the excessive hairiness on women in those parts of the body where terminal hair does not normally occur or is minimal -for example, a beard or chest hair. The dataset we are going to work with is composed by 100 instances and 9 variables, it has missing values.  All the variables are integers in exception of the treatment variable which is a factor. 
 
 Variable name   | Description                          | Values
 :------------------:|:--------------------------------------------------------------------------------------------:|:--------------------------:
@@ -26,65 +26,77 @@ DiaPres |  Baseline diastolic blood pressure | Integer |
 weight | Baseline weight | Integer |
 height | Baseline height | Integer |
 
-(Note: The term baseline means that these variables were measured at the beginning of the clinical trial).
+The main objective of this project is to fit several GAM models explaining FGm12 as a function of the variables that were measured at the beginning of the clinical trial (including FGm0) and Treatment (treated as factor). Once generated the model, we are going to get an insight of how good each model is and finally, we will use function ANOVA to select among the best ones. To work comfortably with the models, before starting with the modelling part, we have removed the NA values from our dataset and we have converted the Treatment column as factors. 
 
-The main objective of this project is to fit several GAM models (including semiparametric models) explaining FGm12 as a function of the variables that were measured at the beginning of the clinical trial (including FGm0) and Treatment (treated as factor). Using functions summary, plot and vis.gam to get an insight into the fitted models. Then we will use function anova to select among them the model (or models) that we think is (are) the most appropriate.
+Aside from solving the NA's, we have performed a data exploration of the Treatment variable (using the script provided). In the aforementioned script, we have boxplots where we can see that FG decreases as the treatment has an effect on the patient so we can see a decrease between FG in the different stages (0,3,6,12). If we see FG between different treatments, we can see that the slope variates depending on the treatment that the patient is exposed, which means that one treatment or another will affect at the client hirsutism in a different way. We can see also that there are some treatments with a higher variance than others, for instance Treatment 2 has a very small variance whereas Treatment 0 has way more variance. 
 
-Before start, we have to remove NA values from our dataset and converting Treatment column as factors.
-
-```{r}
-hirsutism <- read.table(file="hirsutism.dat", sep="\t", header = T)
+```{r, message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+hirsutism <- read.table(file="hirsutism.dat", sep="\t", header = T, fill = T)
 hirsutism <- hirsutism[complete.cases(hirsutism), ]
 hirsutism$Treatment <- as.factor(hirsutism$Treatment)
 ```
 
-# Model 1
+
+```{r, eval=FALSE, fig.height=6, fig.width=12, message=FALSE, warning=FALSE, include=FALSE}
+attach(hirsutism)
+boxplot(hirsutism[,2:5])
+
+par(mfrow=c(2,2))
+boxplot(hirsutism[,2]~Treatment,ylim=c(0,30), main=names(hirsutism)[2], xlab="Treatment")
+boxplot(hirsutism[,3]~Treatment,ylim=c(0,30), main=names(hirsutism)[3], xlab="Treatment")
+boxplot(hirsutism[,4]~Treatment,ylim=c(0,30), main=names(hirsutism)[4], xlab="Treatment")
+boxplot(hirsutism[,5]~Treatment,ylim=c(0,30), main=names(hirsutism)[5], xlab="Treatment")
+par(mfrow=c(1,1))
+
+par(mfrow=c(2,2))
+boxplot(hirsutism[Treatment==0,2:5],ylim=c(0,30), main="Treatment 0")
+boxplot(hirsutism[Treatment==1,2:5],ylim=c(0,30), main="Treatment 1")
+boxplot(hirsutism[Treatment==2,2:5],ylim=c(0,30), main="Treatment 2")
+boxplot(hirsutism[Treatment==3,2:5],ylim=c(0,30), main="Treatment 3")
+par(mfrow=c(1,1))
+```
+
+## Model 1
 
 Our first model will be a linear model predicting FGm12 with just 2 terms: FGm0 and Treatment.
 
-```{r}
+```{r, echo=TRUE, results='hide'}
 model.1 <- gam(FGm12 ~ weight + height + DiaPres + SysPres + FGm0 + Treatment, data=hirsutism)
 summary(model.1)
 ```
 
 As we can see in the summary, weight, height, diaPres and SysPres are p-value>0.05, so the relevant variables are just FGm0 and Treatment1, Treatment2 and Treatment3. So our next model would be this one except irrelevant variables.
 
-# Model 2
+## Model 2
 
 Our second model GAM Model we are going to fit all relevant predictors and we are going to smooth Fgm0 for each Treatment factor.
 
-```{r}
+```{r, echo=TRUE, fig.height=6, fig.width=12, results='hide'}
 model.2 <- gam(FGm12 ~ s(FGm0, by=Treatment) + Treatment, data=hirsutism)
 summary(model.2)
-plot(model.2,
-     pages=1,
-     residuals=TRUE)
+plot(model.2, pages=1,residuals=TRUE)
 ```
 
 This model is greater than model 1 because R-sq. (adj) is about 0.291.
 
-# Model 3
+## Model 3
 
 Our next model we are going to smooth Fgm0, weight and height. 
-```{r}
+```{r, echo=TRUE, results='hide',fig.height=6, fig.width=12}
 model.3 <- gam(FGm12 ~ s(FGm0, by=Treatment) + s(weight) + s(height), data=hirsutism)
 summary(model.3)
-plot(model.2,
-     pages=1,
-     residuals=TRUE)
+plot(model.2, pages=1, residuals=TRUE)
 ```
 
 We can see again that height and weight are not relevant if we observe p-value. Otherwise, the R squared is about 0.367 and is better than the previous one. 
 
-# Model 4
+## Model 4
 
 Now, we are going to use the previous model adding Treatment 
-```{r}
+```{r, echo=TRUE, results='hide',fig.height=6, fig.width=12}
 model.4 <- gam(FGm12 ~ s(FGm0, by=Treatment) + s(weight) + s(height) + Treatment, data=hirsutism)
 summary(model.4)
-plot(model.4,
-     pages=1,
-     residuals=TRUE)
+plot(model.4, pages=1,residuals=TRUE)
 ```
 
 We can confirm again that weight and height are not relevant and the R-squared is about the previous one (0.354). 
@@ -96,7 +108,7 @@ Now, having these 4 models, we can comparing them using ANOVA.
 Thanks to ANOVA, we are going to select the best comparing each model one by one. 
 
 ### Model 1 vs Model 2
-```{r}
+```{r, echo=TRUE, results='hide'}
 anova(model.1, model.2,test="F") 
 summary(model.1)
 summary(model.2)
@@ -106,7 +118,7 @@ We can see that p-value is less than 0.05, so we can confirm that first model is
 
 ### Model 2 vs Model 3
 
-```{r}
+```{r, echo=TRUE, results='hide'}
 anova(model.2, model.3,test="F") 
 summary(model.2)
 summary(model.3)
@@ -116,7 +128,7 @@ In this case, ANOVA test says that Model 2 is better than model 3 because we get
 
 ### Model 2 vs Model 4
 
-```{r}
+```{r, echo=TRUE, results='hide'}
 
 anova(model.2, model.4,test="F") 
 summary(model.2)
